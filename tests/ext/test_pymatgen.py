@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 import torch
-from matgl.ext.pymatgen import Structure2Graph, get_element_list
+from diep.ext.pymatgen import Structure2Graph, get_element_list
 from pymatgen.core import Lattice, Structure
 
 module_dir = os.path.dirname(os.path.abspath(__file__))

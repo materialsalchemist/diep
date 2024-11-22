@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 import torch
 from ase.build import molecule
-from matgl import load_model
-from matgl.ext.ase import Atoms2Graph, M3GNetCalculator, MolecularDynamics, PESCalculator, Relaxer
+from diep import load_model
+from diep.ext.ase import Atoms2Graph, M3GNetCalculator, MolecularDynamics, PESCalculator, Relaxer
 from pymatgen.io.ase import AseAtomsAdaptor
 
 

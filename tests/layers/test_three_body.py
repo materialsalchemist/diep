@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import torch
-from matgl.graph.compute import (
+from diep.graph.compute import (
     compute_theta_and_phi,
     create_line_graph,
 )
-from matgl.layers import BondExpansion, EmbeddingBlock, SphericalBesselWithHarmonics
-from matgl.layers._core import MLP, GatedMLP
-from matgl.layers._three_body import ThreeBodyInteractions
-from matgl.utils.cutoff import polynomial_cutoff
+from diep.layers import BondExpansion, EmbeddingBlock, SphericalBesselWithHarmonics
+from diep.layers._core import MLP, GatedMLP
+from diep.layers._three_body import ThreeBodyInteractions
+from diep.utils.cutoff import polynomial_cutoff
 from torch import nn
 
 

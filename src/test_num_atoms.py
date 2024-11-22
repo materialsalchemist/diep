@@ -1,6 +1,6 @@
 import json
-import matgl
-from matgl.ext.pymatgen import Structure2Graph, get_element_list
+import diep
+from diep.ext.pymatgen import Structure2Graph, get_element_list
 
 from pymatgen.core import Structure
 import gc

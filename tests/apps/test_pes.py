@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import matgl
+import diep
 import numpy as np
 import pytest
 import torch
-from matgl.apps.pes import Potential
-from matgl.ext.pymatgen import Structure2Graph, get_element_list
-from matgl.models import M3GNet, SO3Net, TensorNet
+from diep.apps.pes import Potential
+from diep.ext.pymatgen import Structure2Graph, get_element_list
+from diep.models import M3GNet, SO3Net, TensorNet
 from pymatgen.core import Lattice, Structure
 
 
@@ -30,7 +30,7 @@ def model_tensornet():
 class TestPotential:
     def test_potential_efsh(self, graph_MoS, model, model_tensornet, model_so3net):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(structure.lattice.matrix, dtype=matgl.float_th)
+        lat = torch.tensor(structure.lattice.matrix, dtype=diep.float_th)
         for m in [model, model_tensornet, model_so3net]:
             ff = Potential(model=m, calc_hessian=True)
             e, f, s, h = ff(graph, lat, state)
@@ -41,7 +41,7 @@ class TestPotential:
 
     def test_potential_efs(self, graph_MoS, model):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(structure.lattice.matrix, dtype=matgl.float_th)
+        lat = torch.tensor(structure.lattice.matrix, dtype=diep.float_th)
         ff = Potential(model=model)
         e, f, s, h = ff(graph, lat, state)
         assert [torch.numel(e)] == [1]
@@ -51,7 +51,7 @@ class TestPotential:
 
     def test_potential_ef(self, graph_MoS, model):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(structure.lattice.matrix, dtype=matgl.float_th)
+        lat = torch.tensor(structure.lattice.matrix, dtype=diep.float_th)
         ff = Potential(model=model, calc_stresses=False)
         e, f, s, h = ff(graph, lat, state)
         assert [torch.numel(e)] == [1]
@@ -61,7 +61,7 @@ class TestPotential:
 
     def test_potential_e(self, graph_MoS, model):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(structure.lattice.matrix, dtype=matgl.float_th)
+        lat = torch.tensor(structure.lattice.matrix, dtype=diep.float_th)
         ff = Potential(model=model, calc_forces=False, calc_stresses=False)
         e, f, s, h = ff(graph, lat, state)
         assert [torch.numel(e)] == [1]
@@ -71,7 +71,7 @@ class TestPotential:
 
     def test_including_repulsion(self, graph_MoS, model):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(structure.lattice.matrix, dtype=matgl.float_th)
+        lat = torch.tensor(structure.lattice.matrix, dtype=diep.float_th)
         ff = Potential(model=model, calc_forces=True, calc_stresses=True, calc_hessian=True, calc_repuls=True)
         e, f, s, h = ff(graph, lat, state)
         assert [f.size(dim=0), f.size(dim=1)] == [2, 3]

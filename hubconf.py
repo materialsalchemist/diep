@@ -3,7 +3,7 @@ from __future__ import annotations
 
 dependencies = ["torch", "matgl"]
 
-import matgl  # noqa
+import diep  # noqa
 
 
 # resnet18 is the name of entrypoint
@@ -14,7 +14,7 @@ def m3gnet_universal_potential(version="MP-2021.2.8-DIRECT", **kwargs):
         version (str): Defaults to "MP-2021.2.8-DIRECT". Other versions available.
         **kwargs: Pass through to matgl.load_model.
     """
-    return matgl.load_model(f"M3GNet-{version}-PES", **kwargs)
+    return diep.load_model(f"M3GNet-{version}-PES", **kwargs)
 
 
 def m3gnet_formation_energy(**kwargs):
@@ -24,7 +24,7 @@ def m3gnet_formation_energy(**kwargs):
         version (str): Defaults to "MP-2018.6.1-EForm". Other versions available.
         **kwargs: Pass through to matgl.load_model.
     """
-    return matgl.load_model("M3GNet-MP-2018.6.1-Eform", **kwargs)
+    return diep.load_model("M3GNet-MP-2018.6.1-Eform", **kwargs)
 
 
 def megnet_formation_energy(**kwargs):
@@ -33,7 +33,7 @@ def megnet_formation_energy(**kwargs):
     Args:
         **kwargs: Pass through to matgl.load_model.
     """
-    return matgl.load_model("MEGNet-MP-2018.6.1-Eform", **kwargs)
+    return diep.load_model("MEGNet-MP-2018.6.1-Eform", **kwargs)
 
 
 def megnet_band_gap_mfi(**kwargs):
@@ -42,4 +42,4 @@ def megnet_band_gap_mfi(**kwargs):
     Args:
         **kwargs: Pass through to matgl.load_model.
     """
-    return matgl.load_model("MEGNet-MP-2019.4.1-BandGap-mfi", **kwargs)
+    return diep.load_model("MEGNet-MP-2019.4.1-BandGap-mfi", **kwargs)

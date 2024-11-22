@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 import torch
-from matgl import set_default_dtype
+from diep import set_default_dtype
 
 
 def test_set_default_dtype():

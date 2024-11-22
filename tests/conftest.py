@@ -10,17 +10,17 @@ of "function".
 """
 from __future__ import annotations
 
-import matgl
+import diep
 import pytest
 import torch
-from matgl.ext.pymatgen import Molecule2Graph, Structure2Graph, get_element_list
-from matgl.graph.compute import (
+from diep.ext.pymatgen import Molecule2Graph, Structure2Graph, get_element_list
+from diep.graph.compute import (
     compute_pair_vector_and_distance,
 )
 from pymatgen.core import Lattice, Molecule, Structure
 from pymatgen.util.testing import PymatgenTest
 
-matgl.clear_cache(confirm=False)
+diep.clear_cache(confirm=False)
 
 
 def get_graph(structure, cutoff):

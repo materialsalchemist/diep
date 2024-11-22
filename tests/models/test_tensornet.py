@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import os
 
-import matgl
+import diep
 import numpy as np
 import pytest
 import torch
-from matgl.models import TensorNet
+from diep.models import TensorNet
 
 
 class TestTensorNet:
@@ -30,7 +30,7 @@ class TestTensorNet:
 
     def test_model_intensive(self, graph_MoS):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=matgl.float_th)
+        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=diep.float_th)
         graph.edata["pbc_offshift"] = torch.matmul(graph.edata["pbc_offset"], lat[0])
         graph.ndata["pos"] = graph.ndata["frac_coords"] @ lat[0]
         model = TensorNet(element_types=["Mo", "S"], is_intensive=True)
@@ -39,7 +39,7 @@ class TestTensorNet:
 
     def test_model_intensive_with_weighted_atom(self, graph_MoS):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=matgl.float_th)
+        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=diep.float_th)
         graph.edata["pbc_offshift"] = torch.matmul(graph.edata["pbc_offset"], lat[0])
         graph.ndata["pos"] = graph.ndata["frac_coords"] @ lat[0]
         model = TensorNet(element_types=["Mo", "S"], is_intensive=True, readout_type="weighted_atom")
@@ -48,7 +48,7 @@ class TestTensorNet:
 
     def test_model_intensive_with_ReduceReadOut(self, graph_MoS):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=matgl.float_th)
+        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=diep.float_th)
         graph.edata["pbc_offshift"] = torch.matmul(graph.edata["pbc_offset"], lat[0])
         graph.ndata["pos"] = graph.ndata["frac_coords"] @ lat[0]
         model = TensorNet(is_intensive=True, readout_type="reduce_atom")
@@ -57,7 +57,7 @@ class TestTensorNet:
 
     def test_model_intensive_with_classification(self, graph_MoS):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=matgl.float_th)
+        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=diep.float_th)
         graph.edata["pbc_offshift"] = torch.matmul(graph.edata["pbc_offset"], lat[0])
         graph.ndata["pos"] = graph.ndata["frac_coords"] @ lat[0]
         model = TensorNet(
@@ -70,7 +70,7 @@ class TestTensorNet:
 
     def test_model_intensive_set2set_classification(self, graph_MoS):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=matgl.float_th)
+        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=diep.float_th)
         graph.edata["pbc_offshift"] = torch.matmul(graph.edata["pbc_offset"], lat[0])
         graph.ndata["pos"] = graph.ndata["frac_coords"] @ lat[0]
         model = TensorNet(

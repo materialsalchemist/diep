@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import matgl
+import diep
 import torch
-from matgl.layers._so3 import (
+from diep.layers._so3 import (
     RealSphericalHarmonics,
     SO3Convolution,
     SO3GatedNonlinearity,
@@ -16,7 +16,7 @@ def test_real_spherical_harmonics():
     lmax = 2
     rsh = RealSphericalHarmonics(lmax)
 
-    vec = torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=matgl.float_th)
+    vec = torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=diep.float_th)
     output = rsh(vec)
 
     assert output.shape, (vec.shape[0], (lmax + 1) ** 2)
@@ -36,7 +36,7 @@ def test_generatre_Ylm_coefficients():
 
 
 def test_scalar2rsh():
-    x = torch.rand((4, 1, 16), dtype=matgl.float_th)
+    x = torch.rand((4, 1, 16), dtype=diep.float_th)
     lmax = 2
     result = scalar2rsh(x, lmax)
 

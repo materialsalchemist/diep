@@ -4,7 +4,7 @@ torch.set_default_device("cpu")
 
 import numpy as np
 from dataset import get_dataset
-from matgl.ext.pymatgen import get_element_list
+from diep.ext.pymatgen import get_element_list
 
 structures, energies, forces, stresses = get_dataset(full_dataset=True, exclude_force_outliers=True)
 labels = {

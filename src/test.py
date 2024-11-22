@@ -1,6 +1,6 @@
 import json
-import matgl
-from matgl.ext.pymatgen import Structure2Graph, get_element_list
+import diep
+from diep.ext.pymatgen import Structure2Graph, get_element_list
 
 from pymatgen.core import Structure
 import gc
@@ -13,13 +13,13 @@ model_name = sys.argv[1]
 
 torch.set_default_device("cuda")
 if model_name == "mym3gnet":
-    model = matgl.load_model("my_models/m3gnet_pes_final", map_location=torch.device("cuda"))
+    model = diep.load_model("my_models/m3gnet_pes_final", map_location=torch.device("cuda"))
 
 # model = matgl.load_model("/home/abshe/matgl/pretrained_models/M3GNet-MP-2021.2.8-DIRECT-PES", map_location=torch.device("cpu"))
 elif model_name == "diep":
-    model = matgl.load_model("my_models/diep_pes")
+    model = diep.load_model("my_models/diep_pes")
 elif model_name == "m3gnet":
-    model = matgl.load_model("../pretrained_models/M3GNet-MP-2021.2.8-PES")
+    model = diep.load_model("../pretrained_models/M3GNet-MP-2021.2.8-PES")
 
 element_types = [
     "H",

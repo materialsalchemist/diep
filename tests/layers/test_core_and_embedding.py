@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import matgl
+import diep
 import pytest
 import torch
-from matgl.layers import (
+from diep.layers import (
     BondExpansion,
     EmbeddingBlock,
     GatedEquivariantBlock,
@@ -11,7 +11,7 @@ from matgl.layers import (
     TensorEmbedding,
     build_gated_equivariant_mlp,
 )
-from matgl.layers._core import MLP, GatedMLP
+from diep.layers._core import MLP, GatedMLP
 from torch import nn
 
 
@@ -188,7 +188,7 @@ class TestCoreAndEmbedding:
             activation=nn.SiLU(),
             ntypes_node=1,
             cutoff=5.0,
-            dtype=matgl.float_th,
+            dtype=diep.float_th,
         )
 
         X, edge_feat, state_feat = tensor_embedding(g1, state1)
@@ -202,7 +202,7 @@ class TestCoreAndEmbedding:
             activation=nn.SiLU(),
             ntypes_node=1,
             cutoff=5.0,
-            dtype=matgl.float_th,
+            dtype=diep.float_th,
             ntypes_state=2,
             include_state=True,
             dim_state_embedding=16,
@@ -221,7 +221,7 @@ class TestCoreAndEmbedding:
             activation=nn.SiLU(),
             ntypes_node=1,
             cutoff=5.0,
-            dtype=matgl.float_th,
+            dtype=diep.float_th,
             include_state=True,
             dim_state_feats=16,
         )

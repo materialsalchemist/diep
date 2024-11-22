@@ -11,11 +11,11 @@ from mp_api.client import MPRester
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 
-import matgl
-from matgl.ext.pymatgen import Structure2Graph, get_element_list
-from matgl.graph.data import MGLDataset, MGLDataLoader, collate_fn_efs
-from matgl.models import M3GNet
-from matgl.utils.training import PotentialLightningModule
+import diep
+from diep.ext.pymatgen import Structure2Graph, get_element_list
+from diep.graph.data import MGLDataset, MGLDataLoader, collate_fn_efs
+from diep.models import M3GNet
+from diep.utils.training import PotentialLightningModule
 import argparse
 from dataset import get_dataset
 
@@ -173,4 +173,4 @@ model_export_path = "./trained_model/"
 model.save(model_export_path)
 
 # load trained model
-model = matgl.load_model(path=model_export_path)
+model = diep.load_model(path=model_export_path)

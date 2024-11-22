@@ -4,7 +4,7 @@ import dgl
 import numpy as np
 import pytest
 import torch
-from matgl.utils.maths import (
+from diep.utils.maths import (
     SPHERICAL_BESSEL_ROOTS,
     binom,
     broadcast_states_to_atoms,

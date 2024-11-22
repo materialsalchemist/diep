@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import torch
-from matgl.utils.so3 import (
+from diep.utils.so3 import (
     generate_clebsch_gordan,
     generate_clebsch_gordan_rsh,
     generate_sh_to_rsh,

@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import os
 
-import matgl
+import diep
 import numpy as np
 import pytest
 import torch as th
-from matgl.graph.compute import compute_pair_vector_and_distance
-from matgl.models import MEGNet
+from diep.graph.compute import compute_pair_vector_and_distance
+from diep.models import MEGNet
 from pymatgen.core import Lattice, Structure
 
 
 class TestMEGNet:
     def test_megnet(self, graph_MoS):
         structure, graph, state = graph_MoS
-        lat = th.tensor(np.array([structure.lattice.matrix]), dtype=matgl.float_th)
+        lat = th.tensor(np.array([structure.lattice.matrix]), dtype=diep.float_th)
         graph.edata["pbc_offshift"] = th.matmul(graph.edata["pbc_offset"], lat[0])
         graph.ndata["pos"] = graph.ndata["frac_coords"] @ lat[0]
         bond_vec, bond_dist = compute_pair_vector_and_distance(graph)

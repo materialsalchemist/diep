@@ -4,9 +4,9 @@ torch.set_default_device("cpu")
 
 import numpy as np
 from dataset import get_dataset
-from matgl.ext.pymatgen import get_element_list
-from matgl.models import M3GNet
-from matgl.utils.training import PotentialLightningModule
+from diep.ext.pymatgen import get_element_list
+from diep.models import M3GNet
+from diep.utils.training import PotentialLightningModule
 import json
 
 d = json.load(open("energies_element_types.json"))

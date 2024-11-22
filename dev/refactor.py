@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import torch
-from matgl.models import MEGNet
+from diep.models import MEGNet
 
 # model_path = "pretrained_models/MEGNet-MP-2019.4.1-BandGap-mfi"
 

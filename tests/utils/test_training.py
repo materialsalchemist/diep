@@ -11,10 +11,10 @@ import pytest
 import pytorch_lightning as pl
 import torch.backends.mps
 from dgl.data.utils import split_dataset
-from matgl.ext.pymatgen import Structure2Graph, get_element_list
-from matgl.graph.data import MGLDataLoader, MGLDataset, collate_fn, collate_fn_efs
-from matgl.models import M3GNet, MEGNet, SO3Net, TensorNet
-from matgl.utils.training import ModelLightningModule, PotentialLightningModule, xavier_init
+from diep.ext.pymatgen import Structure2Graph, get_element_list
+from diep.graph.data import MGLDataLoader, MGLDataset, collate_fn, collate_fn_efs
+from diep.models import M3GNet, MEGNet, SO3Net, TensorNet
+from diep.utils.training import ModelLightningModule, PotentialLightningModule, xavier_init
 from pymatgen.core import Lattice, Structure
 
 module_dir = os.path.dirname(os.path.abspath(__file__))

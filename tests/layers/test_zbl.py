@@ -2,18 +2,18 @@
 from __future__ import annotations
 
 import dgl
-import matgl
+import diep
 import pytest
 import torch
-from matgl.layers import NuclearRepulsion
+from diep.layers import NuclearRepulsion
 
 
 @pytest.fixture()
 def example_data():
     element_types = "H"
     g = dgl.graph(([0, 1], [1, 0]))
-    g.ndata["node_type"] = torch.tensor([0, 0], dtype=matgl.int_th)
-    g.edata["bond_dist"] = torch.tensor([1.0, 1.0], dtype=matgl.float_th)
+    g.ndata["node_type"] = torch.tensor([0, 0], dtype=diep.int_th)
+    g.edata["bond_dist"] = torch.tensor([1.0, 1.0], dtype=diep.float_th)
     return element_types, g
 
 

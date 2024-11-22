@@ -3,18 +3,18 @@ from __future__ import annotations
 from typing import NamedTuple
 
 import dgl
-import matgl
+import diep
 import torch
-from matgl.layers import BondExpansion, EmbeddingBlock, TensorEmbedding
-from matgl.layers._graph_convolution import (
+from diep.layers import BondExpansion, EmbeddingBlock, TensorEmbedding
+from diep.layers._graph_convolution import (
     MLP,
-    M3GNetBlock,
-    M3GNetGraphConv,
+    DIEPBlock,
+    DIEPGraphConv,
     MEGNetBlock,
     MEGNetGraphConv,
     TensorNetInteraction,
 )
-from matgl.utils.cutoff import polynomial_cutoff
+from diep.utils.cutoff import polynomial_cutoff
 from torch import nn
 
 
@@ -111,7 +111,7 @@ class TestGraphConv:
         node_in = 2 * node_dim + edge_dim + state_dim
         state_in = node_dim + state_dim
         degree = max_n * max_l
-        conv = M3GNetGraphConv.from_dims(
+        conv = DIEPGraphConv.from_dims(
             degree=degree,
             include_states=True,
             edge_dims=[edge_in, *conv_hiddens, num_edge_feats],
@@ -148,7 +148,7 @@ class TestGraphConv:
         node_feat, edge_feat, state_feat = embedding(node_attr, edge_attr, state_attr)
         g1.ndata["node_feat"] = node_feat
         g1.edata["edge_feat"] = edge_feat
-        graph_conv = M3GNetBlock(
+        graph_conv = DIEPBlock(
             degree=3 * 3,
             activation=nn.SiLU(),
             conv_hiddens=[32, 16],
@@ -165,7 +165,7 @@ class TestGraphConv:
         # without state features, with and without dropout.
         for dropout in (0.5, None):
             node_feat, edge_feat, state_feat = embedding(node_attr, edge_attr, state_attr)
-            graph_conv = M3GNetBlock(
+            graph_conv = DIEPBlock(
                 degree=3 * 3,
                 dim_node_feats=num_node_feats,
                 dim_edge_feats=num_edge_feats,
@@ -185,7 +185,7 @@ class TestGraphConv:
         g1.edata["edge_attr"] = bond_expansion(g1.edata["bond_dist"])
 
         tensor_embedding = TensorEmbedding(
-            units=64, degree_rbf=3, activation=nn.SiLU(), ntypes_node=1, cutoff=5.0, dtype=matgl.float_th
+            units=64, degree_rbf=3, activation=nn.SiLU(), ntypes_node=1, cutoff=5.0, dtype=diep.float_th
         )
 
         X, edge_feat, state_feat = tensor_embedding(g1, state)
@@ -194,7 +194,7 @@ class TestGraphConv:
             units=64,
             activation=nn.SiLU(),
             equivariance_invariance_group="O3",
-            dtype=matgl.float_th,
+            dtype=diep.float_th,
             cutoff=5.0,
         )
         X = interaction(g1, X)

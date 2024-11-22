@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from matgl.layers import BondExpansion
+from diep.layers import BondExpansion
 
 
 class TestBondExpansion:

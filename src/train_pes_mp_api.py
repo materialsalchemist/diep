@@ -10,11 +10,11 @@ from dgl.data.utils import split_dataset
 from mp_api.client import MPRester
 from pytorch_lightning.loggers import CSVLogger
 
-import matgl
-from matgl.ext.pymatgen import Structure2Graph, get_element_list
-from matgl.graph.data import MGLDataset, MGLDataLoader, collate_fn_efs
-from matgl.models import M3GNet
-from matgl.utils.training import PotentialLightningModule
+import diep
+from diep.ext.pymatgen import Structure2Graph, get_element_list
+from diep.graph.data import MGLDataset, MGLDataLoader, collate_fn_efs
+from diep.models import M3GNet
+from diep.utils.training import PotentialLightningModule
 
 # To suppress warnings for clearer output
 warnings.simplefilter("ignore")
@@ -77,4 +77,4 @@ model_export_path = "./trained_model/"
 model.save(model_export_path)
 
 # load trained model
-model = matgl.load_model(path=model_export_path)
+model = diep.load_model(path=model_export_path)

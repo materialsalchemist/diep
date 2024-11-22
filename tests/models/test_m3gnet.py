@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import os
 
-import matgl
+import diep
 import numpy as np
 import pytest
 import torch
-from matgl.models import M3GNet
+from diep.models import M3GNet
 
 
 class TestM3GNet:
@@ -30,7 +30,7 @@ class TestM3GNet:
 
     def test_model_intensive(self, graph_MoS):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=matgl.float_th)
+        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=diep.float_th)
         graph.edata["pbc_offshift"] = torch.matmul(graph.edata["pbc_offset"], lat[0])
         graph.ndata["pos"] = graph.ndata["frac_coords"] @ lat[0]
         model = M3GNet(element_types=["Mo", "S"], is_intensive=True)
@@ -39,7 +39,7 @@ class TestM3GNet:
 
     def test_model_intensive_reduced_atom(self, graph_MoS):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=matgl.float_th)
+        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=diep.float_th)
         graph.edata["pbc_offshift"] = torch.matmul(graph.edata["pbc_offset"], lat[0])
         graph.ndata["pos"] = graph.ndata["frac_coords"] @ lat[0]
         model = M3GNet(element_types=["Mo", "S"], is_intensive=True, readout_type="reduced_atom")
@@ -48,7 +48,7 @@ class TestM3GNet:
 
     def test_model_intensive_with_classification(self, graph_MoS):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=matgl.float_th)
+        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=diep.float_th)
         graph.edata["pbc_offshift"] = torch.matmul(graph.edata["pbc_offset"], lat[0])
         graph.ndata["pos"] = graph.ndata["frac_coords"] @ lat[0]
         model = M3GNet(
@@ -61,7 +61,7 @@ class TestM3GNet:
 
     def test_model_intensive_set2set_classification(self, graph_MoS):
         structure, graph, state = graph_MoS
-        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=matgl.float_th)
+        lat = torch.tensor(np.array([structure.lattice.matrix]), dtype=diep.float_th)
         graph.edata["pbc_offshift"] = torch.matmul(graph.edata["pbc_offset"], lat[0])
         graph.ndata["pos"] = graph.ndata["frac_coords"] @ lat[0]
         model = M3GNet(element_types=["Mo", "S"], is_intensive=True, task_type="classification", readout_type="set2set")

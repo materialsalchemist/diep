@@ -3,11 +3,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 import torch
-from matgl.graph.compute import (
+from diep.graph.compute import (
     compute_theta_and_phi,
     create_line_graph,
 )
-from matgl.layers._basis import (
+from diep.layers._basis import (
     FourierExpansion,
     GaussianExpansion,
     RadialBesselFunction,
@@ -16,7 +16,7 @@ from matgl.layers._basis import (
     SphericalHarmonicsFunction,
     spherical_bessel_smooth,
 )
-from matgl.layers._three_body import combine_sbf_shf
+from diep.layers._three_body import combine_sbf_shf
 from torch.testing import assert_close
 
 

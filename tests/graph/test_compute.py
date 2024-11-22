@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from functools import partial
 
-import matgl
+import diep
 import numpy as np
 import pytest
 import torch
 import torch.testing as tt
-from matgl.ext.pymatgen import Structure2Graph, get_element_list
-from matgl.graph.compute import (
+from diep.ext.pymatgen import Structure2Graph, get_element_list
+from diep.graph.compute import (
     compute_pair_vector_and_distance,
     compute_theta,
     compute_theta_and_phi,
@@ -63,7 +63,7 @@ def _calculate_cos_loop(graph, threebody_cutoff=4.0):
 class TestCompute:
     def test_compute_pair_vector(self, graph_Mo):
         s1, g1, state1 = graph_Mo
-        lattice = torch.tensor(s1.lattice.matrix, dtype=matgl.float_th).unsqueeze(dim=0)
+        lattice = torch.tensor(s1.lattice.matrix, dtype=diep.float_th).unsqueeze(dim=0)
         g1.edata["pbc_offshift"] = torch.matmul(g1.edata["pbc_offset"], lattice[0])
         g1.ndata["pos"] = g1.ndata["frac_coords"] @ lattice[0]
         bv, bd = compute_pair_vector_and_distance(g1)
@@ -76,7 +76,7 @@ class TestCompute:
 
     def test_compute_pair_vector_for_molecule(self, graph_CH4):
         s2, g2, state2 = graph_CH4
-        lattice = torch.tensor(np.identity(3), dtype=matgl.float_th).unsqueeze(dim=0)
+        lattice = torch.tensor(np.identity(3), dtype=diep.float_th).unsqueeze(dim=0)
         g2.edata["pbc_offshift"] = torch.matmul(g2.edata["pbc_offset"], lattice[0])
         g2.ndata["pos"] = g2.ndata["frac_coords"] @ lattice[0]
         bv, bd = compute_pair_vector_and_distance(g2)
@@ -112,7 +112,7 @@ class TestCompute:
 
     def test_compute_angle(self, graph_Mo, graph_CH4):
         s1, g1, state1 = graph_Mo
-        lattice = torch.tensor(s1.lattice.matrix, dtype=matgl.float_th).unsqueeze(dim=0)
+        lattice = torch.tensor(s1.lattice.matrix, dtype=diep.float_th).unsqueeze(dim=0)
         g1.edata["pbc_offshift"] = torch.matmul(g1.edata["pbc_offset"], lattice[0])
         g1.ndata["pos"] = g1.ndata["frac_coords"] @ lattice[0]
         bv, bd = compute_pair_vector_and_distance(g1)
@@ -139,7 +139,7 @@ class TestCompute:
         )
 
         s2, g2, state2 = graph_CH4
-        lattice = torch.tensor(np.identity(3), dtype=matgl.float_th).unsqueeze(dim=0)
+        lattice = torch.tensor(np.identity(3), dtype=diep.float_th).unsqueeze(dim=0)
         g2.edata["pbc_offshift"] = torch.matmul(g2.edata["pbc_offset"], lattice[0])
         g2.ndata["pos"] = g2.ndata["frac_coords"] @ lattice[0]
         bv, bd = compute_pair_vector_and_distance(g2)
@@ -168,7 +168,7 @@ class TestCompute:
 
     def test_compute_three_body(self, graph_AcAla3NHMe):
         mol1, g1, _ = graph_AcAla3NHMe
-        lattice = torch.tensor(np.identity(3), dtype=matgl.float_th).unsqueeze(dim=0)
+        lattice = torch.tensor(np.identity(3), dtype=diep.float_th).unsqueeze(dim=0)
         g1.edata["pbc_offshift"] = torch.matmul(g1.edata["pbc_offset"], lattice[0])
         g1.ndata["pos"] = g1.ndata["frac_coords"] @ lattice[0]
         bv, bd = compute_pair_vector_and_distance(g1)
@@ -213,7 +213,7 @@ def test_line_graph_extensive():
 @pytest.mark.parametrize("keep_edata", [True, False])
 def test_remove_edges_by_features(graph_Mo, keep_ndata, keep_edata):
     s1, g1, state1 = graph_Mo
-    lattice = torch.tensor(s1.lattice.matrix, dtype=matgl.float_th).unsqueeze(dim=0)
+    lattice = torch.tensor(s1.lattice.matrix, dtype=diep.float_th).unsqueeze(dim=0)
     g1.edata["pbc_offshift"] = torch.matmul(g1.edata["pbc_offset"], lattice[0])
     g1.ndata["pos"] = g1.ndata["frac_coords"] @ lattice[0]
     bv, bd = compute_pair_vector_and_distance(g1)
@@ -249,9 +249,9 @@ def test_remove_edges_by_features(graph_Mo, keep_ndata, keep_edata):
 def test_directed_line_graph(graph_data, cutoff, request):
     s1, g1, state1 = request.getfixturevalue(graph_data)
     lattice = (
-        torch.tensor(s1.lattice.matrix, dtype=matgl.float_th).unsqueeze(dim=0)
+        torch.tensor(s1.lattice.matrix, dtype=diep.float_th).unsqueeze(dim=0)
         if graph_data != "graph_CH4"
-        else torch.tensor(np.identity(3), dtype=matgl.float_th).unsqueeze(dim=0)
+        else torch.tensor(np.identity(3), dtype=diep.float_th).unsqueeze(dim=0)
     )
     g1.edata["pbc_offshift"] = torch.matmul(g1.edata["pbc_offset"], lattice[0])
     g1.ndata["pos"] = g1.ndata["frac_coords"] @ lattice[0]
@@ -272,9 +272,9 @@ def test_directed_line_graph(graph_data, cutoff, request):
 def test_ensure_directed_line_graph_compat(graph_data, request):
     s, g, state = request.getfixturevalue(graph_data)
     lattice = (
-        torch.tensor(s.lattice.matrix, dtype=matgl.float_th).unsqueeze(dim=0)
+        torch.tensor(s.lattice.matrix, dtype=diep.float_th).unsqueeze(dim=0)
         if graph_data != "graph_CH4"
-        else torch.tensor(np.identity(3), dtype=matgl.float_th).unsqueeze(dim=0)
+        else torch.tensor(np.identity(3), dtype=diep.float_th).unsqueeze(dim=0)
     )
     g.edata["pbc_offshift"] = torch.matmul(g.edata["pbc_offset"], lattice[0])
     g.ndata["pos"] = g.ndata["frac_coords"] @ lattice[0]

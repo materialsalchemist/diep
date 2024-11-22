@@ -15,9 +15,9 @@ import requests
 from invoke import task
 from monty.os import cd
 
-import matgl
+import diep
 
-NEW_VER = matgl.__version__
+NEW_VER = diep.__version__
 
 
 @task

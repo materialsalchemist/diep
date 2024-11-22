@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import torch
-from matgl.layers._basis import SphericalBesselFunction
-from matgl.utils.cutoff import cosine_cutoff, polynomial_cutoff
+from diep.layers._basis import SphericalBesselFunction
+from diep.utils.cutoff import cosine_cutoff, polynomial_cutoff
 from torch.testing import assert_close
 
 

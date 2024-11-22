@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import matgl
+import diep
 import pytest
 import torch
-from matgl.layers import BondExpansion, EmbeddingBlock
-from matgl.layers._readout import (
+from diep.layers import BondExpansion, EmbeddingBlock
+from diep.layers._readout import (
     AttentiveFPReadout,
     GlobalPool,
     ReduceReadOut,
@@ -158,7 +158,7 @@ class TestReadOut:
         node_feat, edge_feat, state_feat = embed(node_attr, edge_attr, torch.tensor([1.0, 2.0]))
         g1.ndata["node_feat"] = node_feat
         g1.edata["edge_feat"] = edge_feat
-        g_attr = torch.zeros((1, 16), dtype=matgl.float_th)
+        g_attr = torch.zeros((1, 16), dtype=diep.float_th)
         pool = GlobalPool(feat_size=16)
         # get_node_weight is true
         g_feat, attention_weights = pool(g1, node_feat, g_attr, True)

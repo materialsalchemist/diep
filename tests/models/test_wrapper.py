@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 import torch.nn
-from matgl.data.transformer import Normalizer
-from matgl.models._wrappers import TransformedTargetModel
+from diep.data.transformer import Normalizer
+from diep.models._wrappers import TransformedTargetModel
 
 
 class DummyModel(torch.nn.Module):
