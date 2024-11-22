@@ -11,10 +11,12 @@ from pathlib import Path
 
 import requests
 import torch
-torch.set_default_device("cuda")
-from diep.config import MATGL_CACHE, PRETRAINED_MODELS_BASE_URL
+
+# torch.set_default_device("cuda")
+from diep.config import DIEP_CACHE, PRETRAINED_MODELS_BASE_URL
 
 logger = logging.getLogger(__file__)
+
 
 class IOMixIn:
     """Mixin class for model saving and loading.
@@ -37,7 +39,11 @@ class IOMixIn:
             kwargs: kwargs passed to the class.
         """
         args = inspect.getfullargspec(self.__class__.__init__).args
-        d = {k: v for k, v in locals.items() if k in args and k not in ("self", "__class__")}
+        d = {
+            k: v
+            for k, v in locals.items()
+            if k in args and k not in ("self", "__class__")
+        }
         if kwargs is not None:
             d.update(kwargs)
 
@@ -52,7 +58,12 @@ class IOMixIn:
                 }
         self._init_args = d
 
-    def save(self, path: str | Path = ".", metadata: dict | None = None, makedirs: bool = True):
+    def save(
+        self,
+        path: str | Path = ".",
+        metadata: dict | None = None,
+        makedirs: bool = True,
+    ):
         """Save model to a directory.
 
         Three files will be saved.
@@ -104,7 +115,9 @@ class IOMixIn:
 
         Returns: model_object.
         """
-        fpaths = path if isinstance(path, dict) else _get_file_paths(Path(path), **kwargs)
+        fpaths = (
+            path if isinstance(path, dict) else _get_file_paths(Path(path), **kwargs)
+        )
 
         with open(fpaths["model.json"]) as f:
             model_data = json.load(f)
@@ -114,7 +127,6 @@ class IOMixIn:
         map_location = torch.device("cpu") if not torch.cuda.is_available() else None
         state = torch.load(fpaths["state.pt"], map_location=map_location)
         d = torch.load(fpaths["model.pt"], map_location=map_location)
-        print('------------------Loaded the models------------------')
         # Deserialize any args that are IOMixIn subclasses.
         for k, v in d.items():
             if isinstance(v, dict) and "@class" in v and "@module" in v:
@@ -122,6 +134,9 @@ class IOMixIn:
                 classname = v["@class"]
                 mod = __import__(modname, globals(), locals(), [classname], 0)
                 cls_ = getattr(mod, classname)
+                from diep.models._diep import DIEP
+                cls_ = DIEP
+                print("diep:Loaded model class", cls_)
                 _check_ver(cls_, v)  # Check version of any subclasses too.
                 d[k] = cls_(**v["init_args"])
         d = {k: v for k, v in d.items() if not k.startswith("@")}
@@ -134,7 +149,12 @@ class IOMixIn:
 class RemoteFile:
     """Handling of download of remote files to a local cache."""
 
-    def __init__(self, uri: str, cache_location: str | Path = MATGL_CACHE, force_download: bool = False):
+    def __init__(
+        self,
+        uri: str,
+        cache_location: str | Path = DIEP_CACHE,
+        force_download: bool = False,
+    ):
         """
         Args:
             uri: Uniform resource identifier.
@@ -205,9 +225,9 @@ def load_model(path: Path, **kwargs):
             d = json.load(f)
             modname = d["@module"]
             classname = d["@class"]
-
             mod = __import__(modname, globals(), locals(), [classname], 0)
             cls_ = getattr(mod, classname)
+            print("diep:Loaded model class", cls_)
             return cls_.load(fpaths, **kwargs)
     except BaseException as err:
         raise ValueError(
@@ -238,9 +258,16 @@ def _get_file_paths(path: Path, **kwargs):
         return {fn: path / fn for fn in fnames}
 
     try:
-        return {fn: RemoteFile(f"{PRETRAINED_MODELS_BASE_URL}{path}/{fn}", **kwargs).local_path for fn in fnames}
+        return {
+            fn: RemoteFile(
+                f"{PRETRAINED_MODELS_BASE_URL}{path}/{fn}", **kwargs
+            ).local_path
+            for fn in fnames
+        }
     except requests.RequestException:
-        raise ValueError(f"No valid model found in pre-trained_models at {PRETRAINED_MODELS_BASE_URL}.") from None
+        raise ValueError(
+            f"No valid model found in pre-trained_models at {PRETRAINED_MODELS_BASE_URL}."
+        ) from None
 
 
 def _check_ver(cls_, d: dict):
@@ -270,5 +297,9 @@ def get_available_pretrained_models() -> list[str]:
     Returns:
         List of available models.
     """
-    r = requests.get("https://api.github.com/repos/materialsvirtuallab/matgl/contents/pretrained_models")
-    return [d["name"] for d in json.loads(r.content.decode("utf-8")) if d["type"] == "dir"]
+    r = requests.get(
+        "https://api.github.com/repos/materialsvirtuallab/matgl/contents/pretrained_models"
+    )
+    return [
+        d["name"] for d in json.loads(r.content.decode("utf-8")) if d["type"] == "dir"
+    ]

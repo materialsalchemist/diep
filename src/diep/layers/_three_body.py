@@ -13,8 +13,8 @@ from diep.utils.maths import _block_repeat, get_segment_indices_from_n, scatter_
 
 if TYPE_CHECKING:
     import dgl
-from diep import device
-torch.set_default_device(device)
+# from diep import device
+# torch.set_default_device(device)
 
 class ThreeBodyInteractions(nn.Module):
     """Include 3D interactions to the bond update."""

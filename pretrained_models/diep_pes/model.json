@@ -1,12 +1,12 @@
 {
     "@class": "Potential",
-    "@module": "matgl.apps.pes",
+    "@module": "diep.apps.pes",
     "@model_version": 2,
     "metadata": null,
     "kwargs": {
         "model": {
-            "@class": "M3GNet",
-            "@module": "matgl.models._m3gnet",
+            "@class": "DIEP",
+            "@module": "diep.models._diep",
             "@model_version": 2,
             "init_args": {
                 "element_types": [
@@ -105,7 +105,6 @@
                 "max_n": 3,
                 "max_l": 3,
                 "nblocks": 3,
-                "rbf_type": "SphericalBessel",
                 "is_intensive": true,
                 "readout_type": "weighted_atom",
                 "task_type": "regression",

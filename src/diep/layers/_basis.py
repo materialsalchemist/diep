@@ -9,11 +9,10 @@ import torch
 from torch import Tensor, nn
 
 import diep
-from diep.layers._three_body import combine_sbf_shf
 from diep.utils.maths import SPHERICAL_BESSEL_ROOTS, _get_lambda_func
 from diep.layers._integration import three_body_dft_integral, three_body_dft_integral_multiple_meshes
-from diep import device
-
+# from diep import device
+device = 'cpu'
 torch.set_default_device(device)
 
 
@@ -338,6 +337,8 @@ class DFTIntegration(nn.Module):
         self.max_l = 1
         self.cutoff = cutoff
         self.use_phi = use_phi
+
+        print('diep:DIEP integration')
     
     def forward(self, graph,triple_bond_indices):
         return three_body_dft_integral(graph,triple_bond_indices,do_sum=True)

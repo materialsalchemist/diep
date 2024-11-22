@@ -1,4 +1,4 @@
-"""MatGL (Materials Graph Library) is a graph deep learning library for materials science."""
+"""DIEP is a graph deep learning library for materials science."""
 
 from __future__ import annotations
 
@@ -11,11 +11,10 @@ from .config import clear_cache
 from .utils.io import get_available_pretrained_models, load_model
 
 try:
-    __version__ = version("matgl")
+    __version__ = version("diep")
 except PackageNotFoundError:
     pass  # package not installed
 
-device = "cuda"
 # Default datatypes definitions
 
 float_np = np.float32

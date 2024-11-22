@@ -1,23 +1,9 @@
 from __future__ import annotations
 
-import os
-import shutil
 import warnings
 
-import numpy as np
-import pytorch_lightning as pl
-from dgl.data.utils import split_dataset
-from mp_api.client import MPRester
-from pytorch_lightning.loggers import CSVLogger
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
-
 import diep
-from diep.ext.pymatgen import Structure2Graph, get_element_list
-from diep.graph.data import MGLDataset, MGLDataLoader, collate_fn_efs
-from diep.models import M3GNet
-from diep.utils.training import PotentialLightningModule
-import argparse
-from dataset import get_dataset
+from diep.ext.pymatgen import Structure2Graph
 import glob
 from pymatgen.core import Structure
 
@@ -28,7 +14,7 @@ import torch
 torch.set_default_device("cpu")
 print("Started prediction..")
 
-model = diep.load_model("my_models/m3gnet_pes")
+model = diep.load_model("../pretrained_models/diep_pes")
 
 element_types = [
     "H",
@@ -125,7 +111,7 @@ model.calc_stresses = True
 converter = Structure2Graph(element_types=element_types, cutoff=5.0)
 
 # with torch.no_grad():
-g = glob.glob("test_structures/*.cif")
+g = glob.glob("../test_structures/*.cif")
 for gg in g:
     s = Structure.from_file(gg)
     graph, state_feats_default, state_attr = converter.get_graph(s)

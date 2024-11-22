@@ -10,8 +10,8 @@ from torch import nn
 import diep
 from diep.layers._core import MLP
 from diep.utils.cutoff import cosine_cutoff
-from diep import device
-torch.set_default_device(device)
+# from diep import device
+# torch.set_default_device(device)
 
 
 class EmbeddingBlock(nn.Module):

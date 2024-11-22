@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from diep.layers._activations import ActivationFunction
 from diep.layers._atom_ref import AtomRef
-from diep.layers._basis import FourierExpansion, RadialBesselFunction, SphericalBesselWithHarmonics,DFTIntegration,DFTIntegrationMultipleMeshes
+from diep.layers._basis import (
+    FourierExpansion,
+    RadialBesselFunction,
+    DFTIntegration,
+    DFTIntegrationMultipleMeshes,
+)
 from diep.layers._bond import BondExpansion
-from diep.layers._core import MLP, EdgeSet2Set, GatedEquivariantBlock, GatedMLP, build_gated_equivariant_mlp
-from diep.layers._embedding import EmbeddingBlock, NeighborEmbedding, TensorEmbedding
+from diep.layers._core import MLP, EdgeSet2Set, GatedEquivariantBlock, GatedMLP
+from diep.layers._embedding import EmbeddingBlock, NeighborEmbedding
 from diep.layers._graph_convolution import (
     DIEPBlock,
     DIEPGraphConv,

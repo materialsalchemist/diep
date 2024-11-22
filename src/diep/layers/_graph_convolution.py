@@ -8,13 +8,11 @@ import torch
 from torch import Tensor, nn
 from torch.nn import Dropout, Identity, Module
 
-import diep
 from diep.layers._core import MLP, GatedMLP
-from diep.utils.cutoff import cosine_cutoff
-from diep.utils.maths import decompose_tensor, new_radial_tensor, tensor_norm
 
-from diep import device
+device = "cpu"
 torch.set_default_device(device)
+
 
 class DIEPGraphConv(Module):
     """A M3GNet graph convolution layer in DGL."""
@@ -67,13 +65,22 @@ class DIEPGraphConv(Module):
         M3GNetGraphConv (class)
         """
         edge_update_func = GatedMLP(in_feats=edge_dims[0], dims=edge_dims[1:])
-        edge_weight_func = nn.Linear(in_features=degree, out_features=edge_dims[-1], bias=False)
+        edge_weight_func = nn.Linear(
+            in_features=degree, out_features=edge_dims[-1], bias=False
+        )
 
         node_update_func = GatedMLP(in_feats=node_dims[0], dims=node_dims[1:])
-        node_weight_func = nn.Linear(in_features=degree, out_features=node_dims[-1], bias=False)
+        node_weight_func = nn.Linear(
+            in_features=degree, out_features=node_dims[-1], bias=False
+        )
         attr_update_func = MLP(state_dims, activation, activate_last=True) if include_states else None  # type: ignore
         return DIEPGraphConv(
-            include_states, edge_update_func, edge_weight_func, node_update_func, node_weight_func, attr_update_func
+            include_states,
+            edge_update_func,
+            edge_weight_func,
+            node_update_func,
+            node_weight_func,
+            attr_update_func,
         )
 
     def _edge_udf(self, edges: dgl.udf.EdgeBatch):
@@ -92,7 +99,11 @@ class DIEPGraphConv(Module):
             u = edges.src["u"]
         eij = edges.data.pop("e")
         rbf = edges.data["rbf"]
-        inputs = torch.hstack([vi, vj, eij, u]) if self.include_states else torch.hstack([vi, vj, eij])
+        inputs = (
+            torch.hstack([vi, vj, eij, u])
+            if self.include_states
+            else torch.hstack([vi, vj, eij])
+        )
         mij = {"mij": self.edge_update_func(inputs) * self.edge_weight_func(rbf)}
         return mij
 
@@ -261,7 +272,9 @@ class DIEPBlock(Module):
         Returns:
             A tuple of updated features
         """
-        edge_feat, node_feat, state_feat = self.conv(graph, edge_feat, node_feat, state_feat)
+        edge_feat, node_feat, state_feat = self.conv(
+            graph, edge_feat, node_feat, state_feat
+        )
 
         if self.dropout:
             edge_feat = self.dropout(edge_feat)  # pylint: disable=E1102
@@ -270,4 +283,3 @@ class DIEPBlock(Module):
                 state_feat = self.dropout(state_feat)  # pylint: disable=E1102
 
         return edge_feat, node_feat, state_feat
-

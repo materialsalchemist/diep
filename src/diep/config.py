@@ -101,8 +101,8 @@ DEFAULT_ELEMENTS = (
 
 
 # Default location of the cache for matgl, e.g., for storing downloaded models.
-MATGL_CACHE = Path(os.path.expanduser("~")) / ".cache/matgl"
-os.makedirs(MATGL_CACHE, exist_ok=True)
+DIEP_CACHE = Path(os.path.expanduser("~")) / ".cache/diep"
+os.makedirs(DIEP_CACHE, exist_ok=True)
 
 # Download url for pre-trained models.
 PRETRAINED_MODELS_BASE_URL = "https://github.com/materialsvirtuallab/matgl/raw/main/pretrained_models/"
@@ -116,9 +116,9 @@ def clear_cache(confirm: bool = True):
     """
     answer = "" if confirm else "y"
     while answer not in ("y", "n"):
-        answer = input(f"Do you really want to delete everything in {MATGL_CACHE} (y|n)? ").lower().strip()
+        answer = input(f"Do you really want to delete everything in {DIEP_CACHE} (y|n)? ").lower().strip()
     if answer == "y":
         try:
-            shutil.rmtree(MATGL_CACHE)
+            shutil.rmtree(DIEP_CACHE)
         except FileNotFoundError:
-            print(f"matgl cache dir {MATGL_CACHE!r} not found")
+            print(f"matgl cache dir {DIEP_CACHE!r} not found")

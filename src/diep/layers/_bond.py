@@ -8,8 +8,8 @@ import torch
 from torch import nn
 
 from diep.layers._basis import GaussianExpansion, SphericalBesselFunction
-from diep import device
-
+# from diep import device
+device = "cpu"
 torch.set_default_device(device)
 
 
@@ -57,7 +57,9 @@ class BondExpansion(nn.Module):
         elif rbf_type.lower() == "gaussian":
             self.rbf = GaussianExpansion(initial, final, num_centers, width)  # type: ignore
         else:
-            raise ValueError("Undefined rbf_type, please use SphericalBessel or Gaussian instead.")
+            raise ValueError(
+                "Undefined rbf_type, please use SphericalBessel or Gaussian instead."
+            )
 
     def forward(self, bond_dist: torch.Tensor):
         """Forward.
