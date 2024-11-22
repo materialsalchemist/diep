@@ -15,7 +15,7 @@ try:
 except PackageNotFoundError:
     pass  # package not installed
 
-
+device = "cuda"
 # Default datatypes definitions
 
 float_np = np.float32

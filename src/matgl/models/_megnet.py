@@ -21,6 +21,11 @@ from matgl.graph.compute import compute_pair_vector_and_distance
 from matgl.layers import MLP, ActivationFunction, BondExpansion, EdgeSet2Set, EmbeddingBlock, MEGNetBlock
 from matgl.utils.io import IOMixIn
 
+
+from matgl import device
+
+torch.set_default_device(device)
+
 if TYPE_CHECKING:
     import dgl
 

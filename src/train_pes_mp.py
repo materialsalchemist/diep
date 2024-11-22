@@ -40,7 +40,9 @@ parser.add_argument("--max_l", type=int, default=3, help="max_l")
 parser.add_argument("--model", type=str, default="dft", help="Model")
 parser.add_argument("--dataset", type=str, default="mp_pes", help="Dataset")
 parser.add_argument("--forcelimit", type=float, default=10, help="Limit of forces to include in training")
+parser.add_argument("--device", type=str, default="cuda", help="Device")
 args = parser.parse_args()
+torch.set_default_device(args.device)
 
 if args.uses:
     swnanme = "_sw_" + str(args.sw)
@@ -108,8 +110,8 @@ except OSError as error:
 
 
 print(logname, bs, epochs)
-gendevicestr = "cuda"
-devicestr = "gpu"
+gendevicestr = args.device
+
 
 structures, energies, forces, stresses = get_dataset(
     args=args, full_dataset=full_dataset, exclude_force_outliers=exclude_force_outliers, forcelimit=args.forcelimit
@@ -161,7 +163,7 @@ logger = CSVLogger("logs", name=logname)
 checkpoint_callback = ModelCheckpoint(dirpath="logs/" + logname, save_top_k=5, monitor="val_Total_Loss")
 early_stop_callback = EarlyStopping(monitor="val_Total_Loss", patience=200, mode="min")
 trainer = pl.Trainer(
-    max_epochs=epochs, accelerator="cuda", logger=logger, inference_mode=False, callbacks=[checkpoint_callback]
+    max_epochs=epochs, accelerator=gendevicestr, logger=logger, inference_mode=False, callbacks=[checkpoint_callback]
 )
 trainer.fit(model=lit_module, train_dataloaders=train_loader, val_dataloaders=val_loader)
 # test the model, remember to set inference_mode=False in trainer (see above)

@@ -11,13 +11,16 @@ please refer to::
 
 from __future__ import annotations
 import torch
-# torch.set_default_device("cpu")
 import logging
 from typing import TYPE_CHECKING, Literal
 
 import dgl
 import torch
 from torch import nn
+
+from matgl import device
+
+torch.set_default_device(device)
 
 from matgl.config import DEFAULT_ELEMENTS
 from matgl.graph.compute import (

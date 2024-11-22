@@ -12,6 +12,9 @@ import matgl
 from matgl.layers._three_body import combine_sbf_shf
 from matgl.utils.maths import SPHERICAL_BESSEL_ROOTS, _get_lambda_func
 from matgl.layers._integration import three_body_dft_integral, three_body_dft_integral_multiple_meshes
+from matgl import device
+
+torch.set_default_device(device)
 
 
 class GaussianExpansion(nn.Module):

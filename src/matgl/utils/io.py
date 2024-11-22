@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 import torch
-# torch.set_default_device("cpu")
 import inspect
 import json
 import logging
@@ -12,11 +11,10 @@ from pathlib import Path
 
 import requests
 import torch
-
+torch.set_default_device("cuda")
 from matgl.config import MATGL_CACHE, PRETRAINED_MODELS_BASE_URL
 
 logger = logging.getLogger(__file__)
-
 
 class IOMixIn:
     """Mixin class for model saving and loading.

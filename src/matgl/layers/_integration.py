@@ -4,8 +4,9 @@ import torch
 import warnings
 
 import numpy as np
+from matgl import device
 
-device = 'cuda'
+print("Using device:", device)
 torch.set_default_device(device)
 
 # To suppress warnings for clearer output
@@ -116,7 +117,7 @@ def integration_cpu(tR1,tR2,tR3,tZ1,tZ2,tZ3,do_sum=True):
     grid_batch = torch.unsqueeze(grid, dim=1)
     grid_batch = grid_batch.repeat(1, len(tR1),1)
 
-    # print(tR1.shape)
+    print("diep:Performing integration")
     tR1_batch = torch.unsqueeze(tR1, dim=0)
     tR1_batch = tR1_batch.repeat(121,1,1)
     tR2_batch = torch.unsqueeze(tR2, dim=0)
@@ -197,6 +198,7 @@ def calculate_dsum_cpu(grid, tR1, tR2, tR3, num_points_square, tZ1, tZ2, tZ3, do
     return d_sumss
 
 def integration_multiple_meshes_cpu(max_n,tR1,tR2,tR3,tZ1,tZ2,tZ3,do_sum=True):
+    print("diep:Performing integration")
     d_sumss = []
     grid_size = 5
         
@@ -275,6 +277,7 @@ def triangle_transform(R1,R2,R3,Z1,Z2,Z3):
     return fR1,fR2,fR3,ZZ1,ZZ2,ZZ3
 
 def integration(tR1,tR2,tR3,tZ1,tZ2,tZ3,do_sum=True):
+    print("diep:Performing integration")
     grid_size = 5
     grid = [[(x, y) for x in range(-grid_size, grid_size + 1)] for y in range(-grid_size, grid_size + 1)]
     grid = torch.from_numpy(np.reshape(np.array(grid,dtype=np.float32), (-1,2)))
@@ -366,6 +369,7 @@ def calculate_dsum(grid, tR1, tR2, tR3, num_points_square, tZ1, tZ2, tZ3, do_sum
     return d_sumss
 
 def integration_multiple_meshes(max_n,tR1,tR2,tR3,tZ1,tZ2,tZ3,do_sum=True):
+    print("diep:Performing integration")
     d_sumss = []
     grid_size = 5
         

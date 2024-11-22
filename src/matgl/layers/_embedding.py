@@ -16,6 +16,8 @@ from matgl.utils.maths import (
     vector_to_skewtensor,
     vector_to_symtensor,
 )
+from matgl import device
+torch.set_default_device(device)
 
 
 class EmbeddingBlock(nn.Module):

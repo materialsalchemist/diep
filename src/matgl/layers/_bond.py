@@ -6,9 +6,11 @@ from typing import Literal
 
 import torch
 from torch import nn
-torch.set_default_device("cuda")
 
 from matgl.layers._basis import GaussianExpansion, SphericalBesselFunction
+from matgl import device
+
+torch.set_default_device(device)
 
 
 class BondExpansion(nn.Module):

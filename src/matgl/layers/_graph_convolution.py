@@ -13,6 +13,8 @@ from matgl.layers._core import MLP, GatedMLP
 from matgl.utils.cutoff import cosine_cutoff
 from matgl.utils.maths import decompose_tensor, new_radial_tensor, tensor_norm
 
+from matgl import device
+torch.set_default_device(device)
 
 class MEGNetGraphConv(Module):
     """A MEGNet graph convolution layer in DGL."""

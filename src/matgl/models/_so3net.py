@@ -38,6 +38,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__file__)
 
 
+from matgl import device
+
+torch.set_default_device(device)
+
 class SO3Net(nn.Module, IOMixIn):
     """
     A simple SO3-equivariant representation using spherical harmonics and
