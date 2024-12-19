@@ -20,7 +20,7 @@ setup(
     description="material representation via the direct integration of the external potential",
     long_description=README,
     long_description_content_type="text/markdown",
-    author="Sherif Abdulkader Tawfik Abbas, Tri ",
+    author="Sherif Abdulkader Tawfik Abbas, Tri Minh Nguyen",
     author_email="sherif.tawfic@gmail.com",
     url="https://github.com/sheriftawfikabbas/diep",
     keywords=["material science", "graph neural networks", "ai", "machine learning"],

@@ -15,6 +15,9 @@ from pymatgen.ext.matproj import MPRester
 import diep
 from diep.ext.ase import Relaxer
 
+from m3gnet.graph._compute import *
+from m3gnet.graph._converters import RadiusCutoffGraphConverter
+
 warnings.simplefilter("ignore")
 logger = logging.getLogger("MGL")
 
@@ -53,16 +56,30 @@ def relax_structure(args):
             old_lattice = structure.lattice
             new_lattice = final_structure.lattice
             for param in ("a", "b", "c", "alpha", "beta", "gamma"):
-                print(f"{param}: {getattr(old_lattice, param):.3f} -> {getattr(new_lattice, param):.3f}")
+                print(
+                    f"{param}: {getattr(old_lattice, param):.3f} -> {getattr(new_lattice, param):.3f}"
+                )
             print("Sites (Fractional coordinates)")
 
             def fmt_fcoords(fc):
-                return np.array2string(fc, formatter={"float_kind": lambda x: "%.5f" % x})
+                return np.array2string(
+                    fc, formatter={"float_kind": lambda x: "%.5f" % x}
+                )
 
             for old_site, new_site in zip(structure, final_structure):
-                print(f"{old_site.species}: {fmt_fcoords(old_site.frac_coords)} -> {fmt_fcoords(new_site.frac_coords)}")
+                print(
+                    f"{old_site.species}: {fmt_fcoords(old_site.frac_coords)} -> {fmt_fcoords(new_site.frac_coords)}"
+                )
 
     return 0
+
+
+def get_graph(structure):
+    """Converts the structure into a graph using the M3GNET tensorflow implementation"""
+    r = RadiusCutoffGraphConverter()
+    mg = r.convert(structure)
+    graph = tf_compute_distance_angle(mg.as_list())
+    return graph
 
 
 def predict_structure(args):
@@ -80,7 +97,9 @@ def predict_structure(args):
                 s = args.state_attr[count]  # Get the corresponding state attribute
                 structure = Structure.from_file(f)
                 val = model.predict_structure(structure, torch.tensor(int(s)))
-                print(f"{args.model} prediction for {f} with {state_dict[int(s)]} bandgap: {val} eV.")
+                print(
+                    f"{args.model} prediction for {f} with {state_dict[int(s)]} bandgap: {val} eV."
+                )
 
         else:
             for f in args.infile:
@@ -92,7 +111,9 @@ def predict_structure(args):
         for mid in args.mpids:
             structure = mpr.get_structure_by_material_id(mid)
             val = model.predict_structure(structure)
-            print(f"{args.model} prediction for {mid} ({structure.composition.reduced_formula}): {val}.")
+            print(
+                f"{args.model} prediction for {mid} ({structure.composition.reduced_formula}): {val}."
+            )
 
 
 def clear_cache(args):
@@ -131,7 +152,9 @@ def main():
         "-m",
         "--model",
         dest="model",
-        choices=[m for m in diep.get_available_pretrained_models() if m.endswith("PES")],
+        choices=[
+            m for m in diep.get_available_pretrained_models() if m.endswith("PES")
+        ],
         default="M3GNet-MP-2021.2.8-DIRECT-PES",
         help="Model to use.",
     )
@@ -162,7 +185,9 @@ def main():
 
     p_relax.set_defaults(func=relax_structure)
 
-    p_predict = subparsers.add_parser("predict", help="Perform a prediction with pre-trained models.")
+    p_predict = subparsers.add_parser(
+        "predict", help="Perform a prediction with pre-trained models."
+    )
 
     groups = p_predict.add_mutually_exclusive_group(required=True)
     groups.add_argument(

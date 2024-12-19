@@ -151,7 +151,7 @@ train_loader, val_loader, test_loader = MGLDataLoader(
 )
 print("lengths:", len(train_loader), len(train_data))
 
-model = M3GNet(
+model = DIEP(
     element_types=element_types, is_intensive=True, basis_expansion_type=args.model, max_l=args.max_l, max_n=args.max_n
 )
 lit_module = PotentialLightningModule(
