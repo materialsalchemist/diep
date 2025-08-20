@@ -6,7 +6,8 @@ import math
 from typing import TYPE_CHECKING, Literal
 
 import torch
-# torch.set_default_device("cpu")
+from diep import device
+torch.set_default_device(device)
 
 import pytorch_lightning as pl
 import torch

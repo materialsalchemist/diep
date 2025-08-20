@@ -8,10 +8,10 @@ import torch
 from dgl import DGLGraph, broadcast_edges, softmax_edges, sum_edges
 from torch import Tensor, nn
 from torch.nn import LSTM, Linear, Module, ModuleList
+# if TYPE_CHECKING:
+#     from collections.abc import Sequence
 
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
+from collections.abc import Sequence
 
 class MLP(nn.Module):
     """An implementation of a multi-layer perceptron."""

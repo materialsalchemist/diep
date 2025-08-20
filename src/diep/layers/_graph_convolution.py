@@ -10,9 +10,6 @@ from torch.nn import Dropout, Identity, Module
 
 from diep.layers._core import MLP, GatedMLP
 
-device = "cpu"
-torch.set_default_device(device)
-
 
 class DIEPGraphConv(Module):
     """A M3GNet graph convolution layer in DGL."""
@@ -281,5 +278,4 @@ class DIEPBlock(Module):
             node_feat = self.dropout(node_feat)  # pylint: disable=E1102
             if state_feat is not None:
                 state_feat = self.dropout(state_feat)  # pylint: disable=E1102
-
         return edge_feat, node_feat, state_feat

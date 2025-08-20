@@ -13,8 +13,8 @@ from diep.utils.maths import _block_repeat, get_segment_indices_from_n, scatter_
 
 if TYPE_CHECKING:
     import dgl
-# from diep import device
-# torch.set_default_device(device)
+from diep import device
+
 
 class ThreeBodyInteractions(nn.Module):
     """Include 3D interactions to the bond update."""
@@ -112,3 +112,4 @@ def combine_sbf_shf(sbf, shf, max_n: int, max_l: int, use_phi: bool):
     if use_phi:
         shape *= max_l
     return torch.reshape(expanded_sbf * expanded_shf, [-1, shape])
+
