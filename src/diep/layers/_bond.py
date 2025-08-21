@@ -8,9 +8,6 @@ import torch
 from torch import nn
 
 from diep.layers._basis import GaussianExpansion, SphericalBesselFunction
-# from diep import device
-device = "cpu"
-torch.set_default_device(device)
 
 
 class BondExpansion(nn.Module):
@@ -72,3 +69,4 @@ class BondExpansion(nn.Module):
         """
         bond_basis = self.rbf(bond_dist)
         return bond_basis
+

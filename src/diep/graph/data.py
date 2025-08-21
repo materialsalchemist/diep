@@ -55,10 +55,10 @@ def collate_fn_efs(batch, include_stress: bool = True, include_line_graph: bool 
     """Merge a list of dgl graphs to form a batch."""
     l_g = None
     if include_line_graph:
-        graphs, lattices, line_graphs, state_attr, labels = map(list, zip(*batch))
+        graphs, lattices, line_graphs, state_attr, labels = map(list, zip(*batch, strict=False))
         l_g = dgl.batch(line_graphs)
     else:
-        graphs, lattices, state_attr, labels = map(list, zip(*batch))
+        graphs, lattices, state_attr, labels = map(list, zip(*batch, strict=False))
     g = dgl.batch(graphs)
     e = torch.tensor([d["energies"] for d in labels])  # type: ignore
     f = torch.vstack([d["forces"] for d in labels])  # type: ignore

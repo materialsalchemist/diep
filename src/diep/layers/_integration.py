@@ -4,10 +4,8 @@ import torch
 import warnings
 
 import numpy as np
-# from diep import device
-device = 'cpu'
-print("Using device:", device)
-torch.set_default_device(device)
+from diep import device
+# Remove redundant torch.set_default_device(device) call
 
 # To suppress warnings for clearer output
 warnings.simplefilter("ignore")
@@ -66,7 +64,7 @@ def triangle_transform_cpu(R1, R2, R3, Z1, Z2, Z3):
     # print(d12)
     # print(d12.shape)
     distances = torch.stack([d12, d13, d23], axis=1).to(
-        device=torch.device("cpu")
+        device=device
     )  # batch x 3
     # print(distances.shape)
     ordered_distances, order_indices = torch.sort(distances, dim=1)
@@ -76,7 +74,7 @@ def triangle_transform_cpu(R1, R2, R3, Z1, Z2, Z3):
     Z_idx = (
         torch.from_numpy(np.array([[0, 1, 0, 2, 1, 2]]))
         .repeat(num_triplets, 1)
-        .to(device=torch.device("cpu"))
+        .to(device=device)  # Simplified
     )  # batch x 6
     d1 = ordered_distances[:, 2].cpu().detach().numpy()
     d2 = ordered_distances[:, 1].cpu().detach().numpy()
@@ -91,7 +89,7 @@ def triangle_transform_cpu(R1, R2, R3, Z1, Z2, Z3):
     )
 
     ZZ1arr = torch.where(ZZ12a[:, 0] == ZZ13b[:, 0], ZZ12a[:, 0], ZZ12a[:, 1])
-    ones_ZZ1 = torch.ones(num_triplets).to(device=torch.device("cpu"))
+    ones_ZZ1 = torch.ones(num_triplets).to(device=device)
     ZZ1arr = torch.where(
         (ZZ12a[:, 0] != ZZ13b[:, 0]) & (ZZ12a[:, 1] != ZZ13b[:, 1]), ones_ZZ1, ZZ1arr
     )
@@ -128,9 +126,9 @@ def triangle_transform_cpu(R1, R2, R3, Z1, Z2, Z3):
     fR1 = torch.from_numpy(r1 - r_center)
     fR2 = torch.from_numpy(r2 - r_center)
     fR3 = torch.from_numpy(r3 - r_center)
-    fR1 = fR1.to(device=torch.device("cpu"))
-    fR2 = fR2.to(device=torch.device("cpu"))
-    fR3 = fR3.to(device=torch.device("cpu"))
+    fR1 = fR1.to(device=device)
+    fR2 = fR2.to(device=device)
+    fR3 = fR3.to(device=device)
     return fR1, fR2, fR3, ZZ1, ZZ2, ZZ3
 
 
@@ -141,14 +139,13 @@ def integration_cpu(tR1, tR2, tR3, tZ1, tZ2, tZ3, do_sum=True):
         for y in range(-grid_size, grid_size + 1)
     ]
     grid = torch.from_numpy(np.reshape(np.array(grid, dtype=np.float32), (-1, 2))).to(
-        device=torch.device("cpu")
+        device=device
     )
 
     batchlen = len(tR1)
     grid_batch = torch.unsqueeze(grid, dim=1)
     grid_batch = grid_batch.repeat(1, len(tR1), 1)
 
-    print("diep:Performing integration")
     tR1_batch = torch.unsqueeze(tR1, dim=0)
     tR1_batch = tR1_batch.repeat(121, 1, 1)
     tR2_batch = torch.unsqueeze(tR2, dim=0)
@@ -170,9 +167,9 @@ def integration_cpu(tR1, tR2, tR3, tZ1, tZ2, tZ3, do_sum=True):
     # print('tZ1',tZ1.shape)
     # print('n',n.shape)
     zeros = torch.zeros(121, batchlen)
-    zeros.to(device=torch.device("cpu"))
+    zeros.to(device=device)
     ones = torch.ones(121, batchlen)
-    ones.to(device=torch.device("cpu"))
+    ones.to(device=device)
 
     d_batch = (
         n * tZ1_batch / torch.sqrt(d1_batch**2 + 1)
@@ -217,9 +214,9 @@ def calculate_dsum_cpu(
     tZ3_batch = torch.unsqueeze(tZ3, dim=0).repeat(num_points_square, 1)
 
     zeros = torch.zeros(num_points_square, batchlen)
-    zeros.to(device=torch.device("cpu"))
+    zeros.to(device=device)
     ones = torch.ones(num_points_square, batchlen)
-    ones.to(device=torch.device("cpu"))
+    ones.to(device=device)
     d_sumss = []
     for i in range(1, max_n + 1):
         # print('\n\n>>>>>>>>>>>tZ1_batch',tZ1_batch.shape)
@@ -242,7 +239,7 @@ def calculate_dsum_cpu(
 
 
 def integration_multiple_meshes_cpu(max_n, tR1, tR2, tR3, tZ1, tZ2, tZ3, do_sum=True):
-    print("diep:Performing integration")
+
     d_sumss = []
     grid_size = 5
 
@@ -253,7 +250,7 @@ def integration_multiple_meshes_cpu(max_n, tR1, tR2, tR3, tZ1, tZ2, tZ3, do_sum=
         for y in range(-2 * grid_size, 2 * grid_size + 2, 2)
     ]
     grid = torch.from_numpy(np.reshape(np.array(grid, dtype=np.float32), (-1, 2))).to(
-        device=torch.device("cpu")
+        device=device
     )
     d_sums = calculate_dsum_cpu(
         grid,
@@ -299,7 +296,7 @@ def triangle_transform(R1, R2, R3, Z1, Z2, Z3):
     Z_idx = (
         torch.from_numpy(np.array([[0, 1, 0, 2, 1, 2]]))
         .repeat(num_triplets, 1)
-        .to(torch.device(device))
+        .to(device)
     )
     d1 = ordered_distances[:, 2].cpu().detach().numpy()
     d2 = ordered_distances[:, 1].cpu().detach().numpy()
@@ -348,15 +345,14 @@ def triangle_transform(R1, R2, R3, Z1, Z2, Z3):
     r3 = np.array([r3_x, r3_y]).T
     r_center = (r1 + r2 + r3) / 3
 
-    fR1 = torch.from_numpy(r1 - r_center).to(torch.device(device))
-    fR2 = torch.from_numpy(r2 - r_center).to(torch.device(device))
-    fR3 = torch.from_numpy(r3 - r_center).to(torch.device(device))
+    fR1 = torch.from_numpy(r1 - r_center).to(device)
+    fR2 = torch.from_numpy(r2 - r_center).to(device)
+    fR3 = torch.from_numpy(r3 - r_center).to(device)
 
     return fR1, fR2, fR3, ZZ1, ZZ2, ZZ3
 
 
 def integration(tR1, tR2, tR3, tZ1, tZ2, tZ3, do_sum=True):
-    print("diep:Performing integration")
     grid_size = 5
     grid = [
         [(x, y) for x in range(-grid_size, grid_size + 1)]
@@ -366,7 +362,7 @@ def integration(tR1, tR2, tR3, tZ1, tZ2, tZ3, do_sum=True):
 
     batchlen = len(tR1)
     grid_batch = torch.unsqueeze(grid, dim=1)
-    grid_batch = grid_batch.repeat(1, len(tR1), 1).to(torch.device(device))
+    grid_batch = grid_batch.repeat(1, len(tR1), 1).to(device)
 
     # print(tR1.shape)
     tR1_batch = torch.unsqueeze(tR1, dim=0)
@@ -458,7 +454,7 @@ def calculate_dsum(
 
 
 def integration_multiple_meshes(max_n, tR1, tR2, tR3, tZ1, tZ2, tZ3, do_sum=True):
-    print("diep:Performing integration")
+
     d_sumss = []
     grid_size = 5
 

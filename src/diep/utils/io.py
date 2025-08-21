@@ -11,8 +11,8 @@ from pathlib import Path
 
 import requests
 import torch
-
-# torch.set_default_device("cuda")
+from diep import device
+torch.set_default_device(device)
 from diep.config import DIEP_CACHE, PRETRAINED_MODELS_BASE_URL
 
 logger = logging.getLogger(__file__)

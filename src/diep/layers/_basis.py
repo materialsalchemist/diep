@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from math import pi, sqrt
 import torch
-# torch.set_default_device("cpu")
+
 import sympy
 import torch
 from torch import Tensor, nn
@@ -11,9 +11,6 @@ from torch import Tensor, nn
 import diep
 from diep.utils.maths import SPHERICAL_BESSEL_ROOTS, _get_lambda_func
 from diep.layers._integration import three_body_dft_integral, three_body_dft_integral_multiple_meshes
-# from diep import device
-device = 'cpu'
-torch.set_default_device(device)
 
 
 class GaussianExpansion(nn.Module):
@@ -333,8 +330,8 @@ def _sinc(x):
 class DFTIntegration(nn.Module):
     def __init__(self, max_n: int, max_l: int, cutoff: float = 5.0, use_phi: bool = False, smooth: bool = False, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.max_n = 1
-        self.max_l = 1
+        self.max_n = max_n
+        self.max_l = max_l #changed from 1
         self.cutoff = cutoff
         self.use_phi = use_phi
 
