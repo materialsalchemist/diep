@@ -74,6 +74,8 @@ class DIEP(MatGLModel):
         integral_mode: Literal["sum", "grid"] = "grid",
         softening_epsilon: float = 0.5,
         use_effective_charge: bool = True,
+        use_edges: bool | None = None,
+        use_triplets: bool = True,
         **kwargs,
     ):
         """
@@ -104,6 +106,8 @@ class DIEP(MatGLModel):
             integral_mode (str): Integration mode, either "sum" or "grid"
             softening_epsilon (float): Softening parameter to prevent 1/r singularities (default: 0.5)
             use_effective_charge (bool): If True, use sqrt(Z) instead of Z for better scaling (default: True)
+            use_edges (bool | None): If set, override triplet/line-graph usage.
+            use_triplets (bool): If False, skip triplet features and three-body interactions.
             **kwargs: For future flexibility. Not used at the moment.
         """
         super().__init__()
@@ -216,6 +220,10 @@ class DIEP(MatGLModel):
         self.include_state = include_state
         self.task_type = task_type
         self.is_intensive = is_intensive
+        if use_edges is not None:
+            use_triplets = use_edges
+        self.use_triplets = use_triplets
+        self.use_edges = use_triplets
 
     def forward(
         self,
@@ -241,32 +249,43 @@ class DIEP(MatGLModel):
         g.edata["bond_vec"] = bond_vec
         g.edata["bond_dist"] = bond_dist
 
-        if l_g is None:
-            l_g = create_line_graph(g, self.threebody_cutoff)
+        use_edges = self.use_edges
+        if use_edges:
+            if l_g is None:
+                l_g = create_line_graph(g, self.threebody_cutoff)
+            else:
+                l_g = ensure_line_graph_compatibility(g, l_g, self.threebody_cutoff)
         else:
-            l_g = ensure_line_graph_compatibility(g, l_g, self.threebody_cutoff)
+            l_g = None
 
         atomic_table = self.atomic_number_table
         if atomic_table.device != node_types.device:
             atomic_table = atomic_table.to(node_types.device)
         atomic_numbers = atomic_table[node_types].to(diep.float_th)
-        bond_features, triplet_features = self.diep_integrator(g, l_g, atomic_numbers)
+        bond_features, triplet_features = self.diep_integrator(
+            g,
+            l_g,
+            atomic_numbers,
+            compute_triplets=use_edges,
+        )
 
         g.edata["rbf"] = bond_features
-        three_body_basis = triplet_features
-        three_body_cutoff = polynomial_cutoff(g.edata["bond_dist"], self.threebody_cutoff)
+        if use_edges:
+            three_body_basis = triplet_features
+            three_body_cutoff = polynomial_cutoff(g.edata["bond_dist"], self.threebody_cutoff)
 
         node_feat, edge_feat, state_feat = self.embedding(node_types, g.edata["rbf"], state_attr)
         fea_dict = {"diep_embedding": g.edata["rbf"]}
         for i in range(self.n_blocks):
-            edge_feat = self.three_body_interactions[i](
-                g,
-                l_g,
-                three_body_basis,
-                three_body_cutoff,
-                node_feat,
-                edge_feat,
-            )
+            if use_edges:
+                edge_feat = self.three_body_interactions[i](
+                    g,
+                    l_g,
+                    three_body_basis,
+                    three_body_cutoff,
+                    node_feat,
+                    edge_feat,
+                )
             edge_feat, node_feat, state_feat = self.graph_layers[i](g, edge_feat, node_feat, state_feat)
             fea_dict[f"gc_{i + 1}"] = {
                 "node_feat": node_feat,

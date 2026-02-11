@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from diep.layers._activations import ActivationFunction
 from diep.layers._atom_ref import AtomRef
-from diep.layers._basis import FourierExpansion, RadialBesselFunction, SphericalBesselWithHarmonics
+from diep.layers._basis import FourierExpansion, RadialBesselFunction
 from diep.layers._bond import BondExpansion
 from diep.layers._core import MLP, EdgeSet2Set, GatedEquivariantBlock, GatedMLP, MLP_norm, build_gated_equivariant_mlp
 from diep.layers._diep import DIEPIntegrator

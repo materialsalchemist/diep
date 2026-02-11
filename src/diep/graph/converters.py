@@ -50,13 +50,15 @@ class GraphConverter(metaclass=abc.ABCMeta):
             DGLGraph object, state_attr
 
         """
-        u, v = torch.tensor(src_id, dtype=diep.int_th), torch.tensor(dst_id, dtype=diep.int_th)
-        g = dgl.graph((u, v), num_nodes=len(structure))
+        device = torch.device("cpu")
+        u = torch.tensor(src_id, dtype=diep.int_th, device=device)
+        v = torch.tensor(dst_id, dtype=diep.int_th, device=device)
+        g = dgl.graph((u, v), num_nodes=len(structure), device=device)
         # TODO: Need to check if the variable needs to be double or float, now use float
-        pbc_offset = torch.tensor(images, dtype=diep.float_th)
+        pbc_offset = torch.tensor(images, dtype=diep.float_th, device=device)
         g.edata["pbc_offset"] = pbc_offset
         # TODO: Need to check if the variable needs to be double or float, now use float
-        lattice = torch.tensor(np.array(lattice_matrix), dtype=diep.float_th)
+        lattice = torch.tensor(np.array(lattice_matrix), dtype=diep.float_th, device=device)
         # Note: pbc_ offshift and pos needs to be float64 to handle cases where bonds are exactly at cutoff
         element_to_index = {elem: idx for idx, elem in enumerate(element_types)}
         node_type = (
@@ -64,8 +66,8 @@ class GraphConverter(metaclass=abc.ABCMeta):
             if is_atoms is False
             else np.array([element_to_index[elem] for elem in structure.get_chemical_symbols()])
         )
-        g.ndata["node_type"] = torch.tensor(node_type, dtype=diep.int_th)
+        g.ndata["node_type"] = torch.tensor(node_type, dtype=diep.int_th, device=device)
         # TODO: Need to check if the variable needs to be double or float, now use float
-        g.ndata["frac_coords"] = torch.tensor(frac_coords, dtype=diep.float_th)
+        g.ndata["frac_coords"] = torch.tensor(frac_coords, dtype=diep.float_th, device=device)
         state_attr = np.array([0.0, 0.0]).astype(diep.float_np)
         return g, lattice, state_attr

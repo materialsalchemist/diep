@@ -194,7 +194,13 @@ class PESCalculator(Calculator):
         properties = properties or ["energy"]
         system_changes = system_changes or all_changes
         super().calculate(atoms=atoms, properties=properties, system_changes=system_changes)
+        model_device = None
+        for param in self.potential.model.parameters():
+            model_device = param.device
+            break
         graph, lattice, state_attr_default = self.graph_converter.get_graph(atoms)
+        if model_device is not None and model_device.type != "cpu":
+            self.potential.model.to("cpu")
         # type: ignore
         if self.state_attr is not None:
             calc_result = self.potential(graph, lattice, self.state_attr)

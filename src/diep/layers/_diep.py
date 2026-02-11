@@ -418,6 +418,7 @@ class DIEPIntegrator(nn.Module):
         g,
         l_g,
         atomic_numbers: torch.Tensor,
+        compute_triplets: bool = True,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Return DIEP bond and triplet features (vectorized implementation)."""
         self._ensure_grid(g.device)
@@ -497,6 +498,16 @@ class DIEPIntegrator(nn.Module):
             bond_feat = integrand.sum(dim=1, keepdim=True)  # (N_edges, 1)
         else:
             bond_feat = integrand  # (N_edges, P)
+
+        if not compute_triplets:
+            if self.mode == "sum":
+                triplet_feat = torch.zeros((0, 1), dtype=diep.float_th, device=g.device)
+            else:
+                triplet_feat = torch.zeros((0, n_grid_points), dtype=diep.float_th, device=g.device)
+            return bond_feat.to(diep.float_th), triplet_feat.to(diep.float_th)
+
+        if l_g is None:
+            raise ValueError("Line graph must be provided when compute_triplets is True.")
 
         # Triplet processing (vectorized over all triplets)
         lg_src, lg_dst = l_g.edges()

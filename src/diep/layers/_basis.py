@@ -8,7 +8,6 @@ import torch
 from torch import Tensor, nn
 
 import diep
-from diep.layers._three_body import combine_sbf_shf
 from diep.utils.cutoff import cosine_cutoff
 from diep.utils.maths import SPHERICAL_BESSEL_ROOTS, _get_lambda_func
 
@@ -221,65 +220,6 @@ class FourierExpansion(nn.Module):
         return result / self.interval * self.scale_factor
 
 
-class SphericalHarmonicsFunction(nn.Module):
-    """Spherical Harmonics function."""
-
-    def __init__(self, max_l: int, use_phi: bool = True):
-        """
-        Args:
-            max_l: int, max l (excluding l)
-            use_phi: bool, whether to use the polar angle. If not,
-            the function will compute `Y_l^0`.
-        """
-        super().__init__()
-        self.max_l = max_l
-        self.use_phi = use_phi
-        funcs = []
-        theta, phi = sympy.symbols("theta phi")
-        for lval in range(self.max_l):
-            m_list = range(-lval, lval + 1) if self.use_phi else [0]  # type: ignore
-            for m in m_list:
-                func = sympy.functions.special.spherical_harmonics.Znm(lval, m, theta, phi).expand(func=True)
-                funcs.append(func)
-        # replace all theta with cos(theta)
-        cos_theta = sympy.symbols("costheta")
-        funcs = [i.subs({theta: sympy.acos(cos_theta)}) for i in funcs]
-        self.orig_funcs = [sympy.simplify(i).evalf() for i in funcs]
-        self.funcs = [sympy.lambdify([cos_theta, phi], i, [{"conjugate": torch.conj}, torch]) for i in self.orig_funcs]
-        self.funcs[0] = _y00
-
-    def __call__(self, cos_theta, phi=None):
-        """Args:
-            cos_theta: Cosine of the azimuthal angle
-            phi: torch.Tensor, the polar angle.
-
-        Returns:
-            torch.Tensor: [n, m] spherical harmonic results, where n is the number
-            of angles. The column is arranged following
-            `[Y_0^0, Y_1^{-1}, Y_1^{0}, Y_1^1, Y_2^{-2}, ...]`
-        """
-        # cos_theta = torch.tensor(cos_theta, dtype=torch.complex64)
-        # phi = torch.tensor(phi, dtype=torch.complex64)
-        return torch.stack([func(cos_theta, phi) for func in self.funcs], axis=1)
-        # results = results.type(dtype=DataType.torch_float)
-        # return results
-
-
-def _y00(theta, phi):
-    r"""Spherical Harmonics with `l=m=0`.
-
-    ..math::
-        Y_0^0 = \frac{1}{2} \sqrt{\frac{1}{\pi}}
-
-    Args:
-        theta: torch.Tensor, the azimuthal angle
-        phi: torch.Tensor, the polar angle
-
-    Returns: `Y_0^0` results
-    """
-    return 0.5 * torch.ones_like(theta) * sqrt(1.0 / pi)
-
-
 def spherical_bessel_smooth(r: Tensor, cutoff: float = 5.0, max_n: int = 10) -> Tensor:
     """This is an orthogonal basis with first
     and second derivative at the cutoff
@@ -325,42 +265,6 @@ def spherical_bessel_smooth(r: Tensor, cutoff: float = 5.0, max_n: int = 10) -> 
 
 def _sinc(x):
     return torch.sin(x) / x
-
-
-class SphericalBesselWithHarmonics(nn.Module):
-    """Expansion of basis using Spherical Bessel and Harmonics."""
-
-    def __init__(self, max_n: int, max_l: int, cutoff: float, use_smooth: bool, use_phi: bool):
-        """
-        Init SphericalBesselWithHarmonics.
-
-        Args:
-            max_n: Degree of radial basis functions.
-            max_l: Degree of angular basis functions.
-            cutoff: Cutoff sphere.
-            use_smooth: Whether using smooth version of SBFs or not.
-            use_phi: Using phi as angular basis functions.
-        """
-        super().__init__()
-
-        assert max_n <= 64
-        self.max_n = max_n
-        self.max_l = max_l
-        self.cutoff = cutoff
-        self.use_phi = use_phi
-        self.use_smooth = use_smooth
-
-        # retrieve formulas
-        self.shf = SphericalHarmonicsFunction(self.max_l, self.use_phi)
-        if self.use_smooth:
-            self.sbf = SphericalBesselFunction(self.max_l, self.max_n * self.max_l, self.cutoff, self.use_smooth)
-        else:
-            self.sbf = SphericalBesselFunction(self.max_l, self.max_n, self.cutoff, self.use_smooth)
-
-    def forward(self, line_graph):
-        sbf = self.sbf(line_graph.edata["triple_bond_lengths"])
-        shf = self.shf(line_graph.edata["cos_theta"], line_graph.edata["phi"])
-        return combine_sbf_shf(sbf, shf, max_n=self.max_n, max_l=self.max_l, use_phi=self.use_phi)
 
 
 class ExpNormalFunction(nn.Module):
