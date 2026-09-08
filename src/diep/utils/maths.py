@@ -97,15 +97,21 @@ def get_segment_indices_from_n(ns):
     """Get segment indices from number array. For example if
     ns = [2, 3], then the function will return [0, 0, 1, 1, 1].
 
+    Empty segments are handled correctly: ns = [2, 0, 3] returns [0, 0, 2, 2, 2] and
+    ns = [0, 0, 0] returns an empty tensor. This matters because the three-body line
+    graph carries one ``n_triple_ij`` entry per *parent* bond, which is zero for every
+    bond that participates in no triple, so interior and trailing zeros are routine.
+
     Args:
         ns: torch.Tensor, the number of atoms/bonds array
 
     Returns:
-        torch.Tensor: segment indices tensor
+        torch.Tensor: int64 segment indices tensor. int64 because the result is used as
+            an index for ``Tensor.scatter_add_``, which rejects int32.
     """
-    segments = torch.zeros(ns.sum(), dtype=diep.int_th)
-    segments[ns.cumsum(0)[:-1]] = 1
-    return segments.cumsum(0)
+    return torch.repeat_interleave(
+        torch.arange(ns.numel(), device=ns.device, dtype=torch.long), ns.long()
+    )
 
 
 def get_range_indices_from_n(ns: torch.Tensor):

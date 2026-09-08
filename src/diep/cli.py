@@ -10,12 +10,10 @@ import warnings
 import numpy as np
 import torch
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-from pymatgen.core.structure import Structure
+from oganesson import OgStructure
 from pymatgen.ext.matproj import MPRester
-from pymatgen.io.ase import AseAtomsAdaptor
 
 import diep
-from diep.ext.ase import MolecularDynamics, Relaxer
 
 warnings.simplefilter("ignore")
 logger = logging.getLogger("MGL")
@@ -28,8 +26,10 @@ def relax_structure(args):
     Args:
         args: Args from CLI.
     """
+    from diep.ext.ase import Relaxer
+
     for fn in args.infile:
-        structure = Structure.from_file(fn)
+        structure = OgStructure(file_name=fn).structure
 
         if args.verbose:
             logging.basicConfig(level=logging.INFO)
@@ -77,13 +77,13 @@ def predict_structure(args):
     model = diep.load_model(args.model)
     if args.infile:
         for f in args.infile:
-            structure = Structure.from_file(f)
+            structure = OgStructure(file_name=f).structure
             val = model.predict_structure(structure)
             print(f"{args.model} prediction for {f}: {val} eV/atom.")
     if args.mpids:
         mpr = MPRester()
         for mid in args.mpids:
-            structure = mpr.get_structure_by_material_id(mid)
+            structure = OgStructure(mpr.get_structure_by_material_id(mid)).structure
             val = model.predict_structure(structure)
             print(f"{args.model} prediction for {mid} ({structure.composition.reduced_formula}): {val}.")
 
@@ -95,11 +95,13 @@ def molecular_dynamics(args):
     Args:
         args: Args from CLI.
     """
+    from diep.ext.ase import MolecularDynamics
+
     for file in args.infile:
         name = file.split(".")[0]
-        structure = Structure.from_file(file)
-        adaptor = AseAtomsAdaptor()
-        atoms = adaptor.get_atoms(structure)
+        og = OgStructure(file_name=file)
+        structure = og.structure
+        atoms = og.to_ase()
 
         logger.info(f"Initial structure\n{structure}")
         logger.info("Loading model...")

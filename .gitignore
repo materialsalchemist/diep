@@ -44,3 +44,5 @@ val_data.json
 test_data.json
 *.out
 *.err
+data/
+.claude

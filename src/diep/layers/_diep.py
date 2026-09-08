@@ -509,7 +509,12 @@ class DIEPIntegrator(nn.Module):
         if l_g is None:
             raise ValueError("Line graph must be provided when compute_triplets is True.")
 
-        # Triplet processing (vectorized over all triplets)
+        # Triplet processing (vectorized over all triplets).
+        # Index-space precondition: l_g node ids are *parent-bond* ids of g, so lg_src/lg_dst
+        # index src/dst/bond_vec (all length g.num_edges()) directly. create_line_graph
+        # guarantees this; see diep.graph.compute._remap_line_graph_to_bond_space. With
+        # pruned-bond ids here the triplet geometry itself -- the three positions and species
+        # handed to the integrator -- would be built from the wrong bonds.
         lg_src, lg_dst = l_g.edges()
         bond_vec = g.edata["bond_vec"].to(diep.float_th)
         max_triplets = lg_src.shape[0]
@@ -522,6 +527,7 @@ class DIEPIntegrator(nn.Module):
                 triplet_feat = torch.zeros((0, n_grid_points), dtype=diep.float_th, device=g.device)
             return bond_feat.to(diep.float_th), triplet_feat.to(diep.float_th)
 
+        # src, dst and bond_vec are parent-bond indexed; lg_src, lg_dst are parent-bond ids.
         center_idx = src[lg_src]
         neighbor_i = dst[lg_src]
         neighbor_k = dst[lg_dst]

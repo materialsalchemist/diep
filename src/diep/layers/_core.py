@@ -5,9 +5,7 @@ from __future__ import annotations
 import itertools
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-import dgl
 import torch
-from dgl import DGLGraph, broadcast_edges, softmax_edges, sum_edges
 from torch import Tensor, nn
 from torch.nn import LSTM, Linear, Module, ModuleList
 
@@ -15,6 +13,9 @@ from diep.layers._norm import GraphNorm, LayerNorm
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+
+    import dgl
+    from dgl import DGLGraph
 
 
 class MLP(nn.Module):
@@ -235,6 +236,8 @@ class EdgeSet2Set(Module):
         :param feat: Input features.
         :return: One hot vector
         """
+        from dgl import broadcast_edges, softmax_edges, sum_edges  # noqa: PLC0415  (DGL is optional)
+
         with g.local_scope():
             batch_size = g.batch_size
 

@@ -49,8 +49,17 @@ class ThreeBodyInteractions(nn.Module):
             three_cutoff: cutoff radius
             node_feat: node features
             edge_feat: edge features
+
+        Index-space precondition:
+            ``line_graph`` node ids must be *parent-bond* ids of ``graph`` -- i.e.
+            ``line_graph.num_nodes() == graph.num_edges()`` and node ``i`` is bond ``i``.
+            ``create_line_graph`` guarantees this (``_remap_line_graph_to_bond_space``);
+            ``diep.graph.compute.assert_lg_invariants`` checks it. The arithmetic below is
+            correct as written and must not be "fixed": if it misbehaves, the caller handed
+            in a line graph in pruned-bond index space.
         """
-        # Get the indices of the end atoms for each bond in the line graph
+        # graph.edges()[1] is parent-bond indexed (length num_bonds); line_graph.edges()[1]
+        # holds parent-bond ids, so this is the true end atom of the second bond of each triple.
         end_atom_indices = graph.edges()[1][line_graph.edges()[1]].to(diep.int_th)
 
         # Update node features using the atom update network
@@ -62,7 +71,11 @@ class ThreeBodyInteractions(nn.Module):
         # Compute the basis term
         basis = three_basis * end_atom_features
 
-        # Reshape and compute weights based on the three-cutoff tensor
+        # Reshape and compute weights based on the three-cutoff tensor.
+        # three_cutoff is polynomial_cutoff(g.edata["bond_dist"], threebody_cutoff), built over
+        # parent bonds; edge_indices holds parent-bond ids, so each triple picks up the envelope
+        # of its own two bonds. Indexed with pruned-bond ids instead, a triple would often select
+        # a bond beyond threebody_cutoff where the envelope is an exact zero, silently deleting it.
         three_cutoff = three_cutoff.unsqueeze(1)
         edge_indices = torch.stack(list(line_graph.edges()), dim=1)
         weights = three_cutoff[edge_indices].view(-1, 2)
@@ -71,7 +84,10 @@ class ThreeBodyInteractions(nn.Module):
         # Compute the weighted basis
         basis = basis * weights[:, None]
 
-        # Aggregate the new bonds using scatter_sum
+        # Aggregate the new bonds using scatter_sum.
+        # n_triple_ij has one entry per parent bond (zero for bonds in no triple), so segment_ids
+        # are parent-bond ids and match the scatter width graph.num_edges(). The zeros make
+        # get_segment_indices_from_n's empty-segment handling load-bearing.
         segment_ids = get_segment_indices_from_n(line_graph.ndata["n_triple_ij"])
         new_bonds = scatter_sum(
             basis.to(diep.float_th),

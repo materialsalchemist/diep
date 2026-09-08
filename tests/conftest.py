@@ -10,15 +10,32 @@ of "function".
 """
 from __future__ import annotations
 
+import os
+
+if os.environ.get("DIEP_DGL_STUB") == "1":  # noqa: E402
+    # Opt-in escape hatch for machines with no DGL wheel (e.g. linux-aarch64). Installs the
+    # minimal stand-in in tests/_dgl_stub.py, which covers graph construction, ndata/edata and
+    # dgl.batch -- enough for the three-body index-space tests, nothing else.
+    from _dgl_stub import install as _install_dgl_stub
+
+    _install_dgl_stub()
+
 import diep
 import pytest
 import torch
-from diep.ext.pymatgen import Molecule2Graph, Structure2Graph, get_element_list
-from diep.graph.compute import (
-    compute_pair_vector_and_distance,
-)
 from pymatgen.core import Lattice, Molecule, Structure
 from pymatgen.util.testing import PymatgenTest
+
+try:
+    # DGL (or its test stub) may be entirely absent, e.g. under tests/pyg/, whose own
+    # conftest.py is deliberately independent of this one. Degrade gracefully instead of
+    # failing collection so DGL-free subtrees are unaffected by this conftest's presence.
+    from diep.ext.pymatgen import Molecule2Graph, Structure2Graph, get_element_list
+    from diep.graph.compute import compute_pair_vector_and_distance
+
+    _HAS_DGL_CONVERTERS = True
+except ImportError:
+    _HAS_DGL_CONVERTERS = False
 
 diep.clear_cache(confirm=False)
 
@@ -30,6 +47,8 @@ def get_graph(structure, cutoff):
     Returns:
         Structure/Molecule, Graph, State
     """
+    if not _HAS_DGL_CONVERTERS:
+        pytest.skip("DGL is not available in this environment (see tests/pyg/ for the DGL-free suite)")
     element_types = get_element_list([structure])
     if isinstance(structure, Structure):
         converter = Structure2Graph(element_types=element_types, cutoff=cutoff)  # type: ignore

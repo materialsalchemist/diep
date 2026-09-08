@@ -98,17 +98,27 @@ def create_line_graph(
     Returns:
         l_g: DGL graph containing three body information from graph
     """
-    if error_handling:
+
+    def _build(cutoff: float) -> dgl.DGLGraph:
+        # `graph_with_three_body` renumbers the surviving bonds 0..n_kept-1, so any line
+        # graph built on top of it is in *pruned-bond* index space. Everything downstream
+        # (three_cutoff, g.edges(), g.edata["bond_vec"], the three-body scatter width)
+        # is in *parent-bond* index space, so the undirected line graph is translated
+        # back before it leaves this function. See _remap_line_graph_to_bond_space.
         graph_with_three_body = prune_edges_by_features(
-            g, feat_name="bond_dist", condition=lambda x: x > threebody_cutoff
+            g, feat_name="bond_dist", condition=lambda x: x > cutoff
         )
+        if directed:
+            # NOTE: the directed line graph is *not* remapped. It is unreachable from the
+            # DIEP model (models/_diep.py always calls create_line_graph with the default
+            # directed=False) and its consumer, compute_theta, only reads line-graph ndata,
+            # which _create_directed_line_graph keeps self-consistent within pruned space.
+            return _create_directed_line_graph(graph_with_three_body)
+        return _remap_line_graph_to_bond_space(g, graph_with_three_body, _compute_3body(graph_with_three_body))
+
+    if error_handling:
         try:
-            lg = (
-                _create_directed_line_graph(graph_with_three_body)
-                if directed
-                else _compute_3body(graph_with_three_body)
-            )
-            return lg
+            return _build(threebody_cutoff)
         except Exception as e:
             # Print a warning if the first attempt fails
             warnings.warn(
@@ -117,21 +127,100 @@ def create_line_graph(
                 RuntimeWarning,
                 stacklevel=2,
             )
-            graph_with_three_body = prune_edges_by_features(
-                g, feat_name="bond_dist", condition=lambda x: x > threebody_cutoff + numerical_noise
-            )
-            lg = (
-                _create_directed_line_graph(graph_with_three_body)
-                if directed
-                else _compute_3body(graph_with_three_body)
-            )
-            return lg
-    else:
-        graph_with_three_body = prune_edges_by_features(
-            g, feat_name="bond_dist", condition=lambda x: x > threebody_cutoff
-        )
-        lg = _create_directed_line_graph(graph_with_three_body) if directed else _compute_3body(graph_with_three_body)
-        return lg
+            return _build(threebody_cutoff + numerical_noise)
+    return _build(threebody_cutoff)
+
+
+def _remap_line_graph_to_bond_space(
+    graph: dgl.DGLGraph, pruned_graph: dgl.DGLGraph, line_graph: dgl.DGLGraph
+) -> dgl.DGLGraph:
+    """Translate an m3gnet-style line graph from pruned-bond into parent-bond index space.
+
+    ``_compute_3body`` runs on the graph produced by ``prune_edges_by_features``, whose
+    bonds are renumbered ``0 .. n_kept-1``. The resulting line graph's node ids are
+    therefore *pruned-bond* ids. Every tensor those ids go on to index in the forward pass
+    is built over the *parent* graph's bonds:
+
+    * ``graph.edges()[1]`` and ``graph.edata["bond_vec"]`` (length ``num_bonds``),
+    * ``polynomial_cutoff(g.edata["bond_dist"], threebody_cutoff)`` (length ``num_bonds``),
+    * the three-body scatter, whose width is ``graph.num_edges()``.
+
+    The two spaces coincide only when nothing is pruned (``threebody_cutoff == cutoff``).
+    Under DIEP's shipped 5.0/4.0 configuration roughly half the bonds are pruned, so they
+    diverge almost immediately. This function puts the line graph into parent-bond space so
+    that the consuming layers -- whose arithmetic is correct as written -- see one index
+    space throughout.
+
+    Args:
+        graph: the parent atom graph (all bonds).
+        pruned_graph: the graph returned by ``prune_edges_by_features``; carries the
+            ``edge_ids`` translation table from pruned-bond id to parent-bond id.
+        line_graph: the line graph built over ``pruned_graph`` (pruned-bond index space).
+
+    Returns:
+        A line graph with exactly ``graph.num_edges()`` nodes, node ``i`` being parent bond
+        ``i``, and ``n_triple_ij`` zero for every bond that participates in no triple.
+    """
+    num_bonds = graph.num_edges()
+
+    # edge_ids[i] == parent-bond id of pruned bond i. Ascending by construction, since
+    # prune_edges_by_features builds it with nonzero() on a boolean mask; the remap
+    # therefore preserves the sorted-by-source-bond edge order that the three-body
+    # scatter (get_segment_indices_from_n over n_triple_ij) depends on.
+    edge_ids = pruned_graph.edata["edge_ids"].reshape(-1).long()
+
+    lg_src, lg_dst = line_graph.edges()  # pruned-bond ids
+    src = edge_ids[lg_src.long()].to(diep.int_th)  # parent-bond ids
+    dst = edge_ids[lg_dst.long()].to(diep.int_th)  # parent-bond ids
+
+    # Size explicitly from the parent bond count. Letting dgl infer the node count from
+    # the largest id present is not robust: it would silently drop trailing bonds that
+    # participate in no triple, and break the node-id offsets used by dgl.batch.
+    remapped = dgl.graph((src, dst), num_nodes=num_bonds, device=graph.device)
+
+    # One entry per parent bond, zero for bonds in no triple (including every bond
+    # outside threebody_cutoff). Empty segments are why get_segment_indices_from_n had
+    # to be made empty-segment correct.
+    n_triple_ij = torch.zeros(num_bonds, dtype=diep.int_th, device=graph.device)
+    n_nodes = line_graph.num_nodes()
+    if n_nodes:
+        n_triple_ij[edge_ids[:n_nodes]] = line_graph.ndata["n_triple_ij"].to(n_triple_ij.dtype)
+    remapped.ndata["n_triple_ij"] = n_triple_ij
+
+    # Line-graph node i is now parent bond i, so parent edge data transfers verbatim.
+    for key in ("bond_dist", "bond_vec", "pbc_offset"):
+        if key in graph.edata:
+            remapped.ndata[key] = graph.edata[key]
+
+    return remapped
+
+
+def assert_lg_invariants(g: dgl.DGLGraph, lg: dgl.DGLGraph) -> None:
+    """Assert that a three-body line graph is in parent-bond index space.
+
+    The index-space defect this guards against produces no exception, no NaN and no
+    anomalous loss curve -- training converges normally and test errors land in a healthy
+    band -- so it has to be checked explicitly rather than waited for.
+
+    Args:
+        g: parent atom graph.
+        lg: three-body line graph of ``g`` (undirected / m3gnet style).
+
+    Raises:
+        AssertionError: if any invariant is violated.
+    """
+    src = lg.edges()[0]
+    n_triple = lg.ndata["n_triple_ij"]
+    assert lg.num_nodes() == g.num_edges(), (
+        f"line graph has {lg.num_nodes()} nodes but parent graph has {g.num_edges()} bonds; "
+        "line graph node ids are not in parent-bond index space"
+    )
+    if src.numel():
+        assert bool(torch.all(src[1:] >= src[:-1])), "line graph src not sorted ascending"
+        assert int(src.max()) < g.num_edges(), "line graph src id out of range of parent bonds"
+    expected = torch.bincount(src.long(), minlength=g.num_edges())
+    assert torch.equal(expected.to(n_triple.dtype), n_triple), "n_triple_ij != bincount(line graph src)"
+    assert int(n_triple.sum()) == int(src.numel()), "n_triple_ij.sum() != number of triples"
 
 
 def ensure_line_graph_compatibility(
@@ -324,24 +413,34 @@ def _create_directed_line_graph(
 def _ensure_3body_line_graph_compatibility(graph: dgl.DGLGraph, line_graph: dgl.DGLGraph, threebody_cutoff: float):
     """Ensure that 3body line graph is compatible with a given graph.
 
-    Sets edge data in line graph to be consistent with graph. The line graph is updated in place.
+    Sets node data in the line graph to be consistent with the graph's edge data. The line
+    graph is updated in place.
+
+    Line graphs produced by ``create_line_graph`` are in parent-bond index space: node ``i``
+    of the line graph is bond ``i`` of ``graph``, and there are exactly ``graph.num_edges()``
+    of them. The mapping is therefore the identity and the parent edge data transfers
+    verbatim -- no ``threebody_cutoff`` comparison and no tolerance is involved. That also
+    holds after ``dgl.batch``, because both graphs are batched in the same structure order.
 
     Args:
         graph: atomistic graph
         line_graph: line graph of atomistic graph
-        threebody_cutoff: cutoff for three-body interactions
+        threebody_cutoff: cutoff for three-body interactions. Unused; retained for API
+            compatibility with _ensure_directed_line_graph_compatibility.
     """
-    valid_three_body = graph.edata["bond_dist"] <= threebody_cutoff
-    if line_graph.num_nodes() == graph.edata["bond_vec"][valid_three_body].shape[0]:
-        line_graph.ndata["bond_vec"] = graph.edata["bond_vec"][valid_three_body]
-        line_graph.ndata["bond_dist"] = graph.edata["bond_dist"][valid_three_body]
-        line_graph.ndata["pbc_offset"] = graph.edata["pbc_offset"][valid_three_body]
-    else:
-        three_body_id = torch.concatenate(line_graph.edges())
-        max_three_body_id = torch.max(three_body_id) + 1 if three_body_id.numel() > 0 else 0
-        line_graph.ndata["bond_vec"] = graph.edata["bond_vec"][:max_three_body_id]
-        line_graph.ndata["bond_dist"] = graph.edata["bond_dist"][:max_three_body_id]
-        line_graph.ndata["pbc_offset"] = graph.edata["pbc_offset"][:max_three_body_id]
+    del threebody_cutoff  # unused: the pruned-space cutoff comparison is no longer needed
+
+    if line_graph.num_nodes() != graph.num_edges():
+        raise RuntimeError(
+            "Line graph is not compatible with graph: expected one line-graph node per bond "
+            f"({graph.num_edges()}), got {line_graph.num_nodes()}. Line graphs cached before "
+            "the three-body index-space fix are in pruned-bond index space and cannot be "
+            "reconciled; delete the cached line graphs and reprocess the dataset."
+        )
+
+    line_graph.ndata["bond_vec"] = graph.edata["bond_vec"]
+    line_graph.ndata["bond_dist"] = graph.edata["bond_dist"]
+    line_graph.ndata["pbc_offset"] = graph.edata["pbc_offset"]
 
     return line_graph
 

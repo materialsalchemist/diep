@@ -9,13 +9,14 @@
 
 ## Installation
 
-`diep` requires the installation of the following library:
-
-- DGL: https://www.dgl.ai/pages/start.html
-
-After installing the above library, you can install `diep` using the `pip` command as follows:
+The base install uses the PyTorch Geometric (PyG) backend:
 
 `pip install diep`
+
+The original DGL backend is available as an optional extra (requires a platform DGL
+and m3gnet support, e.g. not aarch64):
+
+`pip install diep[dgl]`
 
 # Features
 
