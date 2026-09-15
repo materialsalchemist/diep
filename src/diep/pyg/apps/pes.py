@@ -291,7 +291,7 @@ class Potential(nn.Module, IOMixIn):
         """
         del l_g
         batch_size = self._batch_size(g)
-        lat = torch.atleast_3d(lat) if lat.dim() < 3 else lat
+        lat = lat.unsqueeze(0) if lat.dim() < 3 else lat
         st = lat.new_zeros([batch_size, 3, 3])
         if self.calc_stresses:
             st.requires_grad_(True)
@@ -329,13 +329,19 @@ class Potential(nn.Module, IOMixIn):
 
         grad_vars = [g.pos, st] if self.calc_stresses else [g.pos]
         if self.calc_forces:
+            # Validation only needs first derivatives. Keeping their derivative graph
+            # retains the expensive integration intermediates without any backward
+            # pass to release them. Training and Hessians still need higher derivatives.
+            higher_order = self.training or self.calc_hessian
             grads = grad(
                 total_energies,
                 grad_vars,
                 grad_outputs=torch.ones_like(total_energies),
-                create_graph=True,
-                retain_graph=True,
+                create_graph=higher_order,
+                retain_graph=higher_order,
+                allow_unused=True,
             )
+            grads = [gr if gr is not None else torch.zeros_like(v) for gr, v in zip(grads, grad_vars, strict=False)]
             forces = -grads[0]
 
         if self.calc_hessian:

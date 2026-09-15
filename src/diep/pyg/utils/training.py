@@ -44,11 +44,6 @@ class MatglLightningModuleMixin:
         )
         return results["Total_Loss"]
 
-    def on_train_epoch_end(self):
-        """Step the scheduler every epoch."""
-        sch = self.lr_schedulers()
-        sch.step()
-
     def validation_step(self, batch: tuple, batch_idx: int):
         """Run one validation step and log its metrics."""
         results, batch_size = self.step(batch)
@@ -64,7 +59,6 @@ class MatglLightningModuleMixin:
 
     def test_step(self, batch: tuple, batch_idx: int):
         """Run one test step and log its metrics."""
-        torch.set_grad_enabled(True)
         results, batch_size = self.step(batch)
         self.log_dict(
             {f"test_{key}": val for key, val in results.items()},
@@ -92,14 +86,8 @@ class MatglLightningModuleMixin:
         )
         return [optimizer], [scheduler]
 
-    def on_test_model_eval(self, *args, **kwargs):
-        """Enable gradients during test, which the force calculation needs."""
-        super().on_test_model_eval(*args, **kwargs)
-        torch.set_grad_enabled(True)
-
     def predict_step(self, batch, batch_idx: int, dataloader_idx: int = 0):
         """Run one prediction step."""
-        torch.set_grad_enabled(True)
         return self.step(batch)
 
 
@@ -166,8 +154,8 @@ class PotentialLightningModule(MatglLightningModuleMixin, pl.LightningModule):
 
         self.mae = torchmetrics.MeanAbsoluteError()
         self.rmse = torchmetrics.MeanSquaredError(squared=False)
-        self.register_buffer("data_mean", torch.tensor(data_mean))
-        self.register_buffer("data_std", torch.tensor(data_std))
+        self.register_buffer("data_mean", torch.as_tensor(data_mean).detach().clone())
+        self.register_buffer("data_std", torch.as_tensor(data_std).detach().clone())
 
         self.energy_weight = energy_weight
         self.force_weight = force_weight
@@ -201,7 +189,7 @@ class PotentialLightningModule(MatglLightningModuleMixin, pl.LightningModule):
         self.sync_dist = sync_dist
         self.allow_missing_labels = allow_missing_labels
         self.magmom_target = magmom_target
-        self.save_hyperparameters(ignore=["model"])
+        self.save_hyperparameters(ignore=["model", "optimizer", "scheduler"])
 
     def on_load_checkpoint(self, checkpoint: dict[str, Any]):
         """Backfill state-dict keys added since the checkpoint was written."""
@@ -216,6 +204,7 @@ class PotentialLightningModule(MatglLightningModuleMixin, pl.LightningModule):
         e, f, s, h = self.model(g=g, lat=lat, state_attr=state_attr)
         return e, f, s, h
 
+    @torch.enable_grad()
     def step(self, batch: tuple):
         """Run the model on one batch and compute the losses.
 
@@ -225,7 +214,9 @@ class PotentialLightningModule(MatglLightningModuleMixin, pl.LightningModule):
         Returns:
             (results dict, batch size)
         """
-        torch.set_grad_enabled(True)
+        # Forces need autograd even in evaluation. The decorator restores the caller's
+        # grad mode before DDP's post-forward hook, so validation cannot accidentally
+        # arm a parameter backward pass that will never happen.
         if self.model.calc_magmom:
             g, lat, state_attr, energies, forces, stresses, magmoms = batch
             e, f, s, _, m = self(g=g, lat=lat, state_attr=state_attr)
@@ -235,6 +226,8 @@ class PotentialLightningModule(MatglLightningModuleMixin, pl.LightningModule):
             e, f, s, _ = self(g=g, lat=lat, state_attr=state_attr)
             preds, labels = (e, f, s), (energies, forces, stresses)
 
+        if not self.training:
+            preds = tuple(pred.detach() for pred in preds)
         num_atoms = self.model._num_nodes_per_graph(g)
         results = self.loss_fn(loss=self.loss, preds=preds, labels=labels, num_atoms=num_atoms)
         return results, preds[0].numel()
@@ -276,7 +269,7 @@ class PotentialLightningModule(MatglLightningModuleMixin, pl.LightningModule):
         e_rmse = self.rmse(valid_labels[0] / valid_num_atoms, valid_preds[0] / valid_num_atoms)
         f_rmse = self.rmse(valid_labels[1], valid_preds[1])
 
-        s_mae = s_rmse = m_mae = m_rmse = torch.zeros(1)
+        s_mae = s_rmse = m_mae = m_rmse = preds[0].new_zeros(())
         total_loss = self.energy_weight * e_loss + self.force_weight * f_loss
 
         if self.model.calc_stresses:

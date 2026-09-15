@@ -43,16 +43,27 @@ class AtomRef(nn.Module):
             features[i] = torch.bincount(graph.node_type.long(), minlength=self.max_z)
         return features.cpu().numpy()
 
-    def fit(self, graphs: list, properties: torch.Tensor) -> None:
+    def fit(self, graphs: list, properties: torch.Tensor | np.ndarray) -> None:
         """Least-squares fit of the elemental reference values.
+
+        Solve in float64 without forming the normal equations, which square the
+        condition number. Elements absent from these graphs receive zero offsets.
 
         Args:
             graphs: list of PyG graphs.
             properties: extensive property of each structure.
         """
-        features = self.get_feature_matrix(graphs)
-        self.property_offset = torch.tensor(
-            np.linalg.pinv(features.T @ features) @ features.T @ np.array(properties), dtype=diep.float_th
+        features = self.get_feature_matrix(graphs).astype(np.float64)
+        targets = torch.as_tensor(properties).detach().cpu().numpy().astype(np.float64)
+        if not graphs or targets.shape != (len(graphs),):
+            raise ValueError("Provide one total energy per graph and at least one graph")
+        if not np.isfinite(targets).all():
+            raise ValueError("Elemental reference fitting requires finite energies")
+        observed = np.any(features != 0, axis=0)
+        offsets = np.zeros(self.max_z, dtype=np.float64)
+        offsets[observed] = np.linalg.lstsq(features[:, observed], targets, rcond=None)[0]
+        self.property_offset = torch.as_tensor(
+            offsets, dtype=self.property_offset.dtype, device=self.property_offset.device
         )
 
     def forward(self, data, state_attr: torch.Tensor | None = None):

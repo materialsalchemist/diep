@@ -46,3 +46,4 @@ test_data.json
 *.err
 data/
 .claude
+logs/

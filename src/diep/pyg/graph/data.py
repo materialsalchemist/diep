@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, Dataset, Subset
+from torch.utils.data import DataLoader, Dataset, Sampler, Subset
 from torch_geometric.data import Batch
 from tqdm import trange
 
@@ -93,11 +93,97 @@ def collate_fn_pes(batch, include_stress: bool = True, include_line_graph: bool 
     return g, torch.squeeze(lat), state_attr, e, f, s
 
 
+class MaxAtomsBatchSampler(Sampler[list[int]]):
+    """Batch sampler that packs structures by total atom count instead of a fixed count.
+
+    A fixed ``batch_size`` (structure count) lets an unlucky shuffle group several large
+    structures together, spiking the memory the DIEPIntegrator / force-and-stress
+    double-backward needs for that step regardless of how small ``batch_size`` is set.
+    This bins indices greedily (in shuffled order, when requested) so each yielded batch's
+    total atom count stays under ``max_atoms``, capping that per-batch worst case directly.
+
+    Does its own DDP sharding (``rank``/``num_replicas``) rather than subclassing
+    ``torch.utils.data.BatchSampler``, since Lightning can only auto-inject a distributed
+    sampler into a ``BatchSampler`` subclass with a fixed ``batch_size`` -- which this isn't.
+    Pass ``Trainer(use_distributed_sampler=False)`` and construct one instance per rank.
+
+    Sharding happens *after* packing, on whole batches (round-robin, padding the remainder)
+    rather than on raw indices beforehand. Packing indices per-rank independently
+    would let each rank's greedy bin-packing land on a different batch count for the same
+    epoch -- since DDP's backward pass runs one collective per batch in lockstep, a rank that
+    runs out of batches first leaves the others hanging on the next collective until NCCL's
+    watchdog times out. Every rank must build with the same ``shuffle``/seed so the
+    pre-split global batch list (and thus ``len()``) is identical before the split. Packs
+    are fixed, then shuffled with a private generator each epoch so their count stays
+    constant and unrelated random draws cannot change a rank's schedule.
+    """
+
+    def __init__(
+        self,
+        atom_counts: list[int],
+        max_atoms: int,
+        shuffle: bool = True,
+        rank: int = 0,
+        num_replicas: int = 1,
+        seed: int = 42,
+    ):
+        if max_atoms <= 0 or num_replicas < 1 or not 0 <= rank < num_replicas:
+            raise ValueError("Require max_atoms > 0, num_replicas >= 1 and 0 <= rank < num_replicas")
+        self.atom_counts = atom_counts
+        self.max_atoms = max_atoms
+        self.shuffle = shuffle
+        self.rank = rank
+        self.num_replicas = num_replicas
+        self.seed = seed
+        self.epoch = 0
+        # Lightning looks for set_epoch on batch_sampler.sampler.
+        self.sampler = self
+        generator = torch.Generator().manual_seed(seed)
+        order = torch.randperm(len(atom_counts), generator=generator).tolist() if shuffle else list(range(len(atom_counts)))
+        self._batches = self._global_batches(order)
+
+    def set_epoch(self, epoch: int):
+        """Shuffle the same packs reproducibly on every rank for this epoch."""
+        self.epoch = epoch
+
+    def _global_batches(self, order: list[int]) -> list[list[int]]:
+        batches, batch, total = [], [], 0
+        for idx in order:
+            n = self.atom_counts[idx]
+            if batch and total + n > self.max_atoms:
+                batches.append(batch)
+                batch, total = [], 0
+            batch.append(idx)
+            total += n
+        if batch:
+            batches.append(batch)
+        return batches
+
+    def __iter__(self):
+        generator = torch.Generator().manual_seed(self.seed + self.epoch)
+        order = (
+            torch.randperm(len(self._batches), generator=generator).tolist()
+            if self.shuffle else list(range(len(self._batches)))
+        )
+        if not order:
+            return
+        total = len(self) * self.num_replicas
+        order += (order * self.num_replicas)[: total - len(order)]
+        yield from (self._batches[i] for i in order[self.rank :: self.num_replicas])
+
+    def __len__(self):
+        return (len(self._batches) + self.num_replicas - 1) // self.num_replicas
+
+
 def MGLDataLoader(  # noqa: N802 (name matches the DGL API)
     train_data: Subset,
     val_data: Subset,
     collate_fn: Callable | None = None,
     test_data: Subset | None = None,
+    max_atoms_per_batch: int | None = None,
+    rank: int = 0,
+    num_replicas: int = 1,
+    seed: int = 42,
     **kwargs,
 ) -> tuple[DataLoader, ...]:
     """Dataloaders for DIEP training on PyG graphs.
@@ -107,6 +193,15 @@ def MGLDataLoader(  # noqa: N802 (name matches the DGL API)
         val_data: validation subset.
         collate_fn: collate function; inferred from the available labels when None.
         test_data: optional test subset.
+        max_atoms_per_batch: if given, batches are built by :class:`MaxAtomsBatchSampler`
+            instead of a fixed ``batch_size``, capping each batch's total atom count. Bypasses
+            ``batch_size``/``shuffle`` in ``kwargs`` (a ``DataLoader`` rejects both alongside
+            an explicit ``batch_sampler``).
+        rank: this process's rank, for DDP sharding of the ``max_atoms_per_batch`` sampler
+            (ignored otherwise -- a plain ``DataLoader`` gets sharded by Lightning itself).
+        num_replicas: total number of DDP processes; use with ``rank`` and
+            ``Trainer(use_distributed_sampler=False)``.
+        seed: shared seed for deterministic atom-budget batching across ranks.
         **kwargs: pass-through to ``torch.utils.data.DataLoader`` (batch_size,
             num_workers, pin_memory, generator, ...). A plain torch DataLoader is used
             rather than ``torch_geometric.loader.DataLoader`` because the dataset yields
@@ -127,10 +222,20 @@ def MGLDataLoader(  # noqa: N802 (name matches the DGL API)
         else:
             collate_fn = partial(collate_fn_pes, include_stress=True, include_magmom=True)
 
-    train_loader = DataLoader(train_data, shuffle=True, collate_fn=collate_fn, **kwargs)
-    val_loader = DataLoader(val_data, shuffle=False, collate_fn=collate_fn, **kwargs)
+    def _loader(data: Subset, shuffle: bool) -> DataLoader:
+        if max_atoms_per_batch is None:
+            return DataLoader(data, shuffle=shuffle, collate_fn=collate_fn, **kwargs)
+        atom_counts = [data.dataset.graphs[i].num_nodes for i in data.indices]
+        sampler = MaxAtomsBatchSampler(
+            atom_counts, max_atoms_per_batch, shuffle=shuffle, rank=rank, num_replicas=num_replicas, seed=seed
+        )
+        loader_kwargs = {k: v for k, v in kwargs.items() if k != "batch_size"}
+        return DataLoader(data, batch_sampler=sampler, collate_fn=collate_fn, **loader_kwargs)
+
+    train_loader = _loader(train_data, shuffle=True)
+    val_loader = _loader(val_data, shuffle=False)
     if test_data is not None:
-        return train_loader, val_loader, DataLoader(test_data, shuffle=False, collate_fn=collate_fn, **kwargs)
+        return train_loader, val_loader, _loader(test_data, shuffle=False)
     return train_loader, val_loader
 
 
@@ -158,6 +263,7 @@ class DIEPDataset(Dataset):
         save_cache: bool = True,
         raw_dir: str = "./",
         save_dir: str | None = None,
+        mmap_cache: bool = False,
     ):
         """
         Args:
@@ -176,6 +282,7 @@ class DIEPDataset(Dataset):
             save_cache: whether to save the processed dataset.
             raw_dir: directory holding or receiving the input data.
             save_dir: directory to save the processed dataset. Defaults to raw_dir.
+            mmap_cache: memory-map cached tensor storage rather than copying it at load time.
         """
         self.filename = filename
         self.filename_lattice = filename_lattice
@@ -191,6 +298,7 @@ class DIEPDataset(Dataset):
         self.graph_labels = graph_labels
         self.clear_processed = clear_processed
         self.save_cache = save_cache
+        self.mmap_cache = mmap_cache
         self.save_path = os.path.join(save_dir if save_dir is not None else raw_dir, directory_name)
 
         if self.has_cache():
@@ -257,9 +365,9 @@ class DIEPDataset(Dataset):
 
     def load(self):
         """Load processed graphs from ``save_path``."""
-        self.graphs = torch.load(os.path.join(self.save_path, self.filename), weights_only=False)
-        self.lattices = torch.load(os.path.join(self.save_path, self.filename_lattice), weights_only=False)
-        self.state_attr = torch.load(os.path.join(self.save_path, self.filename_state_attr), weights_only=False)
+        self.graphs = torch.load(os.path.join(self.save_path, self.filename), weights_only=False, mmap=self.mmap_cache)
+        self.lattices = torch.load(os.path.join(self.save_path, self.filename_lattice), weights_only=False, mmap=self.mmap_cache)
+        self.state_attr = torch.load(os.path.join(self.save_path, self.filename_state_attr), weights_only=False, mmap=self.mmap_cache)
         with open(os.path.join(self.save_path, self.filename_labels)) as f:
             self.labels = json.load(f)
 

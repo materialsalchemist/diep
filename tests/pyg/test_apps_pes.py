@@ -43,8 +43,10 @@ def test_forces_sum_to_zero(graphs, element_types):
 def test_forces_match_numerical_gradient(graphs, element_types):
     model = _model(element_types)
     pot = Potential(model=model, calc_forces=True, calc_stresses=False)
+    pot.eval()
     data, lat, _ = graphs[0]
     _, forces, _, _ = pot(g=data.clone(), lat=lat)
+    assert not forces.requires_grad
 
     lat_inv = torch.linalg.inv(lat[0])
     eps = 1e-3
