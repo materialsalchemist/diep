@@ -1,22 +1,31 @@
 #!/bin/bash
 # Four-GPU training with bounded recovery from saved checkpoints.
 set -uo pipefail
-cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
-SAVE_DIR=${SAVE_DIR:-logs/mp_pes_pyg_v2}
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd -- "$REPO_ROOT"
+
+SAVE_DIR=${SAVE_DIR:-logs/mp_pes_pyg_xl}
 LOG_ROOT="$SAVE_DIR/logs"
 MAX_RESTARTS=${MAX_RESTARTS:-3}
 RESTARTS=0
+RESUME_LATEST=${RESUME_LATEST:-0}
 
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
 while true; do
-  LATEST_CKPT=$(find "$LOG_ROOT" -name '*.ckpt' -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
   RESUME_ARGS=()
-  if [[ -n "$LATEST_CKPT" ]]; then
-    echo "Resuming from checkpoint: $LATEST_CKPT"
-    RESUME_ARGS=(--resume "$LATEST_CKPT")
+  if [[ "$RESUME_LATEST" == "1" ]]; then
+    LATEST_CKPT=$(find "$LOG_ROOT" -name '*.ckpt' -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
+    if [[ -n "$LATEST_CKPT" ]]; then
+      echo "Resuming from checkpoint: $LATEST_CKPT"
+      RESUME_ARGS=(--resume "$LATEST_CKPT")
+    else
+      echo "Resume requested, but no checkpoint was found under $LOG_ROOT; starting fresh."
+    fi
+  else
+    echo "Starting a fresh run. Set RESUME_LATEST=1 to resume the latest checkpoint."
   fi
 
   RUN_VERSION="run_$(date -u +%Y%m%dT%H%M%S)_$$"
@@ -32,6 +41,11 @@ while true; do
     --accelerator gpu \
     --devices 4 \
     --integral-mode sum \
+    --num-channels 8 \
+    --channel-min 1.5 \
+    --channel-max 5.0 \
+    --channel-width 0.4 \
+    --loss huber_loss \
     "${RESUME_ARGS[@]}" "$@"
 
   EXIT_CODE=$?

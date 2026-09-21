@@ -1,0 +1,55 @@
+model:
+  _target_: diep.model.mp.MPPES
+  hidden_dim: 1280
+  num_layers: 24
+  num_rbf: 64
+  rbf_type: 'expnorm'
+  trainable_rbf: true
+  max_z: 100
+  max_num_neighbors: 50
+  cutoff: 5.0
+  max_radius: 5.0
+  use_pbc: true
+  use_edge_encoder: true
+  use_node_encoder: true
+  use_graph_norm: false
+  use_batch_norm: false
+  activation: 'silu'
+  neighbor_embedding: true
+  num_heads: 16
+  negative_slopes: 0.01
+  drop_edge_rate: 0.0
+  drop_node_rate: 0.0
+  drop_path_rate: 0.0
+  drop_out: 0.1
+
+task:
+  _target_: diep.task.mp.MPPESLitTask
+  loss: 'huber'
+  lr: 0.001
+  weight_decay: 0.0
+  scheduler_gamma: 0.95
+  energy_loss_weight: 1.0
+  force_loss_weight: 1.0
+  pos_loss_weight: 0.0
+  train_e_per_atom_loss: false
+  eval_e_per_atom_loss: false
+
+datamodule:
+  _target_: diep.datamodule.pyg.MPPESPyGDataModule
+  train_dataset: '/data/diep_data/mp_tray_ref/train'
+  val_dataset: '/data/diep_data/mp_tray_ref/val'
+  test_dataset: '/data/diep_data/mp_tray_ref/test'
+  batch_size: 64
+  num_workers: 8
+  pin_memory: true
+
+trainer:
+  _target_: pytorch_lightning.Trainer
+  max_epochs: 100
+  precision: 32
+  accelerator: 'gpu'
+  devices: 1
+  gradient_clip_val: 1.0
+
+seed: 42

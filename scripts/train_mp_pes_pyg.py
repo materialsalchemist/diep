@@ -222,12 +222,21 @@ def main(args):
         f"{len(test_loader)} test batches", flush=True,
     )
 
+    channel_centers = None
+    if args.num_channels > 1:
+        if args.integral_mode != "sum":
+            raise ValueError("--num-channels > 1 requires --integral-mode sum.")
+        channel_centers = np.linspace(args.channel_min, args.channel_max, args.num_channels).tolist()
+
     model = DIEP(
         element_types=element_types,
         is_intensive=False,
         cutoff=args.cutoff,
         threebody_cutoff=args.threebody_cutoff,
         integral_mode=args.integral_mode,
+        gaussian_sigma=args.gaussian_sigma,
+        channel_centers=channel_centers,
+        channel_width=args.channel_width,
         dim_node_embedding=args.dim_node_embedding,
         dim_edge_embedding=args.dim_edge_embedding,
         nblocks=args.nblocks,
@@ -286,6 +295,14 @@ def _parse_args():
     parser.add_argument("--cutoff", type=float, default=5.0)
     parser.add_argument("--threebody-cutoff", type=float, default=4.0)
     parser.add_argument("--integral-mode", choices=["sum", "grid"], default="grid")
+    parser.add_argument("--gaussian-sigma", type=float, default=1.0)
+    parser.add_argument("--num-channels", type=int, default=1,
+                         help="number of bond-length-gated channels (requires --integral-mode sum); "
+                              "channel centers are evenly spaced between --channel-min and --channel-max")
+    parser.add_argument("--channel-min", type=float, default=1.5)
+    parser.add_argument("--channel-max", type=float, default=5.0)
+    parser.add_argument("--channel-width", type=float, default=0.4,
+                         help="width (A) of each Gaussian bond-length window; ignored if --num-channels == 1")
     parser.add_argument("--dim-node-embedding", type=int, default=64)
     parser.add_argument("--dim-edge-embedding", type=int, default=64)
     parser.add_argument("--nblocks", type=int, default=3)

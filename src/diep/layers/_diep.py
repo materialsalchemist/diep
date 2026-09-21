@@ -45,12 +45,17 @@ class DIEPGrid:
         self.delta_area = _compute_delta_area(axis)
 
 
-def _gaussian_density(diff_sq: torch.Tensor, sigma: float) -> torch.Tensor:
+def _gaussian_density(diff_sq: torch.Tensor, sigma: torch.Tensor | float) -> torch.Tensor:
     """Compute Gaussian electron density contribution with squared-distance decay.
-    
+
+    ``sigma`` may be a scalar or a tensor of per-channel widths; a tensor of shape ``(D,)``
+    broadcasts against a trailing size-1 axis of ``diff_sq`` to produce ``D`` density channels
+    from the same squared distances.
+
     Returns normalized density for 2D integration.
     """
-    denom = torch.tensor(sigma, dtype=diff_sq.dtype, device=diff_sq.device)
+    denom = sigma if torch.is_tensor(sigma) else torch.tensor(sigma, dtype=diff_sq.dtype, device=diff_sq.device)
+    denom = denom.to(dtype=diff_sq.dtype, device=diff_sq.device)
     # Normalize by (pi * sigma) for proper 2D Gaussian normalization
     normalization = torch.pi * denom
     return torch.exp(-torch.clamp(diff_sq, min=0.0) / denom) / normalization

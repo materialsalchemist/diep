@@ -12,6 +12,7 @@ three-body scatter width) is built over the same bonds.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal
 
 import torch
@@ -76,6 +77,8 @@ class DIEP(MatGLModel):
         base_spacing: float = 1.0,
         gaussian_sigma: float = 1.0,
         integral_mode: Literal["sum", "grid"] = "grid",
+        channel_centers: float | Sequence[float] | None = None,
+        channel_width: float | None = None,
         softening_epsilon: float = 0.5,
         use_effective_charge: bool = True,
         use_edges: bool | None = None,
@@ -108,6 +111,12 @@ class DIEP(MatGLModel):
             base_spacing: base grid spacing for DIEP integration.
             gaussian_sigma: width parameter for the Gaussian electron density.
             integral_mode: "sum" or "grid".
+            channel_centers: bond-length centers (Angstrom) of a bank of Gaussian windows
+                gating the DIEP bond/triplet scalar (only valid with ``integral_mode="sum"``),
+                one channel per center, turning the feature from a single scalar into a
+                length-D vector. ``None`` (default) disables gating.
+            channel_width: width (Angstrom) of each Gaussian window; required when
+                ``channel_centers`` gives more than one value.
             softening_epsilon: softening parameter preventing 1/r singularities.
             use_effective_charge: use sqrt(Z) instead of Z.
             use_edges: if set, overrides triplet/line-graph usage.
@@ -136,6 +145,8 @@ class DIEP(MatGLModel):
             base_spacing=base_spacing,
             sigma=gaussian_sigma,
             mode=integral_mode,
+            channel_centers=channel_centers,
+            channel_width=channel_width,
             softening_epsilon=softening_epsilon,
             use_effective_charge=use_effective_charge,
         )
