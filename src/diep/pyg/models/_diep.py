@@ -1,7 +1,8 @@
 """The DIEP model on PyTorch Geometric.
 
 A translation of :mod:`diep.models._diep`. Submodule and parameter names are identical, so a
-DGL checkpoint loads into this model unchanged and the two backends produce the same numbers.
+compatible DGL checkpoint still loads. This model additionally smooths its two-body features
+at the pair cutoff; predictions therefore differ from the unsmoothed DGL backend.
 
 The three-body line graph is built by :func:`diep.pyg.graph.compute.create_line_graph`,
 which works in parent-bond index space throughout -- ``triple_index`` holds ids into
@@ -250,9 +251,13 @@ class DIEP(MatGLModel):
         if atomic_table.device != node_types.device:
             atomic_table = atomic_table.to(node_types.device)
         atomic_numbers = atomic_table[node_types].to(diep.float_th)
-
+        # Calculate the raw bond and triplet features using the DIEP integrator.
         bond_features, triplet_features = self.diep_integrator(g, atomic_numbers, compute_triplets=use_edges)
-        g.rbf = bond_features
+        # Attenuate bond features at the pair cutoff before embedding and message passing.
+        pair_cutoff = polynomial_cutoff(g.bond_dist, self.cutoff)
+
+        # Apply one factor per bond to every feature channel; retain the existing shape.
+        g.rbf = bond_features * pair_cutoff.unsqueeze(-1)
         if use_edges:
             three_body_basis = triplet_features
             three_body_cutoff = polynomial_cutoff(g.bond_dist, self.threebody_cutoff)
