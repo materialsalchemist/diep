@@ -1,8 +1,9 @@
 """PyTorch Geometric backend for DIEP.
 
-An alternative to the DGL implementation in the rest of :mod:`diep`, with the same model,
-the same parameter names (so DGL checkpoints load directly) and the same numbers -- but no
-DGL dependency, which matters wherever DGL has no wheel (linux-aarch64, recent PyTorch).
+An alternative to the DGL implementation in the rest of :mod:`diep`, with matching parameter
+names so compatible DGL checkpoints load directly, but no DGL dependency. The PyG model
+additionally applies two-body cutoff smoothing, so its predictions differ from the
+unsmoothed DGL backend even with the same weights.
 
 Layout mirrors the DGL side::
 

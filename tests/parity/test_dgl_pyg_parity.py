@@ -1,4 +1,10 @@
-"""Numerical parity between the DGL and PyG DIEP backends.
+"""Numerical parity with the same pair envelope in both DIEP backends.
+
+The production PyG model applies a polynomial cutoff to its bond features; the production
+DGL model retains its original behavior. The ``dgl_model`` fixture adds the same pair
+envelope through a temporary integrator forward hook, leaving triplet features unchanged.
+Thus these tests compare matching smoothing policies, not the two default model behaviors.
+The hook affects only the test fixture and is removed when the fixture is torn down.
 
 Requires DGL -- or, on machines without a DGL wheel (e.g. linux-aarch64), the test stub in
 tests/_dgl_stub.py, opted into via DIEP_DGL_STUB=1 (see tests/conftest.py). If neither is
@@ -12,7 +18,7 @@ also batched, that:
     unexpected keys (the checkpoint-compatibility claim the port depends on);
   * the line graph (edge_index / triple_index / n_triple_ij / bond_dist) is identical between
     backends, i.e. both are in the same parent-bond index space;
-  * DIEPIntegrator's bond/triplet features and the model's energy match to float precision;
+  * the model's energy matches to float precision under the common pair envelope;
   * Potential's energies, forces and stresses match under both DGL and PyG batching.
 """
 
@@ -40,6 +46,7 @@ from diep.pyg.graph.compute import assert_lg_invariants as pyg_assert  # noqa: E
 from diep.pyg.graph.compute import create_line_graph as pyg_line_graph  # noqa: E402
 from diep.pyg.models import DIEP as PyGDIEP  # noqa: E402
 from diep.pyg.apps.pes import Potential as PyGPotential  # noqa: E402
+from diep.utils.cutoff import polynomial_cutoff  # noqa: E402
 from pymatgen.core import Lattice, Structure  # noqa: E402
 from torch_geometric.data import Batch  # noqa: E402
 
@@ -101,13 +108,25 @@ def pretrained_config():
 
 @pytest.fixture(scope="module")
 def dgl_model(pretrained_config):
+    """Adapt only this DGL fixture to the PyG model's pair smoothing policy."""
     init_args, msd = pretrained_config
     model = DGLDIEP(**init_args)
     result = model.load_state_dict(msd, strict=False)
     assert not result.missing_keys and not result.unexpected_keys, result
     model.eval()
     model.use_edges = model.use_triplets = True
-    return model
+
+    def apply_pair_envelope(_integrator, args, output):
+        graph = args[0]
+        bond_features, triplet_features = output
+        pair_cutoff = polynomial_cutoff(graph.edata["bond_dist"], model.cutoff)
+        return bond_features * pair_cutoff.unsqueeze(-1), triplet_features
+
+    handle = model.diep_integrator.register_forward_hook(apply_pair_envelope)
+    try:
+        yield model
+    finally:
+        handle.remove()
 
 
 @pytest.fixture(scope="module")
