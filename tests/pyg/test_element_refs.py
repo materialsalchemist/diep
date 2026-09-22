@@ -1,14 +1,12 @@
-"""Elemental reference fitting, energy accounting, and checkpoint compatibility."""
+"""Elemental reference lookup, fitting helper, energy accounting, and checkpoint compatibility."""
 
 from __future__ import annotations
 
 from copy import deepcopy
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import torch
-from torch.utils.data import Subset
 from torch_geometric.data import Batch, Data
 
 from diep.pyg.apps.pes import Potential
@@ -18,21 +16,17 @@ from diep.pyg.utils.training import PotentialLightningModule
 from scripts.train_mp_pes_pyg import _get_element_refs
 
 
-def _training_subset():
-    graphs = [Data(node_type=torch.tensor(types)) for types in ([0], [0, 1], [1, 1], [0, 1], [2])]
-    dataset = SimpleNamespace(graphs=graphs, labels={"energies": [-3.0, 1e9, -10.0, -8.0, -999.0]})
-    # Non-sequential indices also check that graph compositions and labels stay aligned.
-    return Subset(dataset, [3, 0, 2])
-
-
-def test_references_fit_only_training_structures():
-    train = _training_subset()
-    refs = _get_element_refs(train, ("Si", "O", "H"))
+def test_references_are_looked_up_from_isolated_atom_energies():
+    isolated_energies = {"Si": -3.0, "O": -5.0}
+    refs = _get_element_refs(("Si", "O", "H"), isolated_energies)
     torch.testing.assert_close(refs, torch.tensor([-3.0, -5.0, 0.0]))
-    train.dataset.labels["energies"][1] = float("nan")
-    train.dataset.labels["energies"][4] = 1e15
-    torch.testing.assert_close(_get_element_refs(train, ("Si", "O", "H")), refs)
     assert not refs.requires_grad
+
+
+def test_references_default_to_zero_for_missing_elements(capsys):
+    refs = _get_element_refs(("Si", "O", "H"), {"Si": -3.0})
+    torch.testing.assert_close(refs, torch.tensor([-3.0, 0.0, 0.0]))
+    assert "No isolated-atom reference energy for 2 element(s)" in capsys.readouterr().out
 
 
 def test_reference_fit_handles_dependent_compositions():
@@ -46,14 +40,14 @@ def test_resume_uses_saved_references_without_refitting(tmp_path):
     refs = torch.tensor([-7.0, -2.0, 0.0])
     path = tmp_path / "model.ckpt"
     torch.save({"state_dict": {"model.element_refs.property_offset": refs}}, path)
-    # No usable dataset: resuming must get its baseline only from the checkpoint.
-    torch.testing.assert_close(_get_element_refs(None, ("Si", "O", "H"), path), refs)
+    # No isolated-atom energies needed: resuming must get its baseline only from the checkpoint.
+    torch.testing.assert_close(_get_element_refs(("Si", "O", "H"), None, path), refs)
 
 
 def test_legacy_resume_does_not_add_an_energy_offset(tmp_path, capsys):
     path = tmp_path / "legacy.ckpt"
     torch.save({"state_dict": {}}, path)
-    assert _get_element_refs(None, ("Si", "O", "H"), path) is None
+    assert _get_element_refs(("Si", "O", "H"), None, path) is None
     assert "preserving its original energy baseline" in capsys.readouterr().out
 
 
@@ -62,7 +56,7 @@ def test_invalid_checkpoint_references_are_rejected(tmp_path, refs):
     path = tmp_path / "invalid.ckpt"
     torch.save({"state_dict": {"model.element_refs.property_offset": refs}}, path)
     with pytest.raises(ValueError, match="finite and match"):
-        _get_element_refs(None, ("Si", "O", "H"), path)
+        _get_element_refs(("Si", "O", "H"), None, path)
 
 
 def test_references_shift_energy_once_and_preserve_derivatives(graphs, element_types, tmp_path):
@@ -101,7 +95,7 @@ def test_lightning_checkpoint_preserves_reference_parameterization(tmp_path):
     torch.save(checkpoint, path)
     restored = PotentialLightningModule(
         model=DIEP(element_types=elements, nblocks=1, is_intensive=False),
-        element_refs=_get_element_refs(None, elements, path),
+        element_refs=_get_element_refs(elements, None, path),
     )
     restored.on_load_checkpoint(checkpoint)
     restored.load_state_dict(checkpoint["state_dict"], strict=True)

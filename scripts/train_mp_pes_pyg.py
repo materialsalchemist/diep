@@ -6,10 +6,10 @@ exactly what each dataset is and how it's fetched), builds a DIEPDataset of PyG 
 and trains ``diep.pyg.models.DIEP`` on energies/forces/stresses with
 ``diep.pyg.utils.training.PotentialLightningModule``.
 
-Fresh runs fit elemental energy references on the training split. The potential adds
-these offsets to the learned residual energy, keeping labels in their original units.
-Resumes preserve the checkpoint's reference energies, including legacy runs without
-references. Start a new output directory to train a legacy model with fitted references.
+Fresh runs load elemental energy references from MatPES's isolated-atom DFT energies
+(one atom per element, in vacuum). The potential adds these offsets to the learned
+residual energy, keeping labels in their original units. Resumes preserve the
+checkpoint's reference energies, including legacy runs without references.
 
 Example (quick smoke run, no download of the large MPF archive):
 
@@ -35,12 +35,11 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import random_split
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mp_pes_datasets import load_datasets  # noqa: E402
+from mp_pes_datasets import download_matpes_atoms, load_datasets, load_matpes_atom_energies  # noqa: E402
 
 from diep.config import DEFAULT_ELEMENTS  # noqa: E402
 from diep.pyg.graph.converters import Structure2Graph  # noqa: E402
 from diep.pyg.graph.data import DIEPDataset, MGLDataLoader  # noqa: E402
-from diep.pyg.layers import AtomRef  # noqa: E402
 from diep.pyg.models import DIEP  # noqa: E402
 from diep.pyg.utils.training import PotentialLightningModule, xavier_init  # noqa: E402
 
@@ -67,8 +66,8 @@ def _split(dataset, val_frac: float, test_frac: float, seed: int):
     return random_split(dataset, [n_train, n_val, n_test], generator=generator)
 
 
-def _get_element_refs(train_set, element_types, resume=None):
-    """Fit training-only reference energies, or retain a resumed model's baseline."""
+def _get_element_refs(element_types, isolated_energies, resume=None):
+    """Look up isolated-atom reference energies, or retain a resumed model's baseline."""
     if resume is not None:
         checkpoint = torch.load(resume, map_location="cpu", weights_only=False)
         refs = checkpoint["state_dict"].get("model.element_refs.property_offset")
@@ -81,13 +80,15 @@ def _get_element_refs(train_set, element_types, resume=None):
         print("Restoring elemental reference energies from the checkpoint.", flush=True)
         return refs
 
-    dataset = train_set.dataset
-    graphs = [dataset.graphs[i] for i in train_set.indices]
-    energies = np.asarray([dataset.labels["energies"][i] for i in train_set.indices], dtype=np.float64)
-    atom_ref = AtomRef(max_z=len(element_types))
-    atom_ref.fit(graphs, energies)
-    print(f"Fitted elemental reference energies from {len(train_set)} training structures.", flush=True)
-    return atom_ref.property_offset.detach().clone()
+    missing = [el for el in element_types if el not in isolated_energies]
+    if missing:
+        print(f"No isolated-atom reference energy for {len(missing)} element(s), defaulting to 0: {missing}", flush=True)
+    offsets = torch.tensor([isolated_energies.get(el, 0.0) for el in element_types], dtype=torch.float32)
+    print(
+        f"Loaded elemental reference energies for {len(element_types) - len(missing)}/{len(element_types)} "
+        "elements from MatPES isolated-atom DFT energies.", flush=True,
+    )
+    return offsets
 
 
 def _load_dataset(args):
@@ -196,8 +197,13 @@ def main(args):
     dataset = _load_dataset(args)
     element_types = DEFAULT_ELEMENTS
 
+    isolated_energies = {}
+    if args.resume is None:
+        atoms_path = download_matpes_atoms(args.data_dir, functional=args.matpes_functional)
+        isolated_energies = load_matpes_atom_energies(atoms_path)
+
     train_set, val_set, test_set = _split(dataset, args.val_frac, args.test_frac, args.seed)
-    element_refs = _get_element_refs(train_set, element_types, resume=args.resume)
+    element_refs = _get_element_refs(element_types, isolated_energies, resume=args.resume)
     # Rank zero may construct its loaders before Lightning launches other ranks.
     # Use the requested device count in that case; torchrun sets WORLD_SIZE upfront.
     rank = int(os.environ.get("RANK", os.environ.get("LOCAL_RANK", 0)))

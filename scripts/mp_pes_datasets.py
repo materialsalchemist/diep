@@ -88,6 +88,49 @@ def download_matpes(cache_dir: str, functional: str = "PBE", version: str = "202
     )
 
 
+def download_matpes_atoms(cache_dir: str, functional: str = "PBE") -> str:
+    """Download the MatPES isolated-atom reference-energy file, if not already cached.
+
+    This is a separate file from the bulk-structure dataset (``download_matpes``): one
+    DFT total energy per element, for an isolated atom in a large box. These are the
+    correct elemental reference energies for a DIEP potential trained on this functional,
+    as opposed to a per-run least-squares fit against training-set total energies.
+
+    Args:
+        cache_dir: Hugging Face Hub cache directory to use.
+        functional: "PBE" or "R2SCAN".
+
+    Returns:
+        Local path to the downloaded ``.json`` file.
+    """
+    from huggingface_hub import hf_hub_download
+
+    return hf_hub_download(
+        repo_id=MATPES_REPO_ID,
+        filename=f"MatPES-{functional.upper()}-atoms.json",
+        repo_type="dataset",
+        cache_dir=cache_dir,
+    )
+
+
+def load_matpes_atom_energies(atoms_json_path: str) -> dict[str, float]:
+    """Parse per-element isolated-atom DFT energies from a MatPES atoms file.
+
+    Args:
+        atoms_json_path: path to a ``MatPES-<functional>-atoms.json`` file, as returned
+            by :func:`download_matpes_atoms`. May be gzip-compressed.
+
+    Returns:
+        {element symbol: isolated-atom total energy (eV)}, one entry per element present
+        in the file.
+    """
+    from monty.io import zopen
+
+    with zopen(atoms_json_path, "rt") as f:
+        records = json.load(f)
+    return {record["elements"][0]: record["energy"] for record in records}
+
+
 def load_mpf_2021(
     block_paths: list[str],
     max_structures: int | None = None,
