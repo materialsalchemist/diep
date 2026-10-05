@@ -1,0 +1,56 @@
+allow_missing_labels: false
+data_mean: 0.0
+data_std: 3.183799116564027
+decay_alpha: 0.01
+decay_steps: 1000
+element_refs: !!python/object/apply:numpy._core.multiarray._reconstruct
+  args:
+  - !!python/name:numpy.ndarray ''
+  - !!python/tuple
+    - 0
+  - !!binary |
+    Yg==
+  state: !!python/tuple
+  - 1
+  - !!python/tuple
+    - 89
+  - !!python/object/apply:numpy.dtype
+    args:
+    - f8
+    - false
+    - true
+    state: !!python/tuple
+    - 3
+    - <
+    - null
+    - null
+    - null
+    - -1
+    - -1
+    - 0
+  - false
+  - !!binary |
+    iG+biAL28b+LJsQaNuPUv4wY8t/u0ui/IyUkbwzD4b/OgvUkVcDyv09d2B7m+ALAXHBpqXq1EcDV
+    0MRDMcQJwFdVFiIz+QHA2gf265AD/r8XdRhZU9UDwO26lhRIrgPAS605OL8WCcCc4cRfrGoQwClI
+    xzCCVRbAyrdnK2l4FMCSoRl6ejsTwEa74akNQxPAHf4/896lFMA567a4hNsTwJBPyM7bgB3A4I4F
+    v+ySH8DEMxWgdcwiwNXerxsZLCfAj6HnPzk+J8Dj3OwwooAjwIJOMZylIyDAK31THv5aHcDAq4oV
+    2tobwJmhK/CZxR3AcuJI8wk7IcAUm+oktgAkwC+Q+7GkqyfA4YT4dgGTJ8ARG8lx6eInwGUVujsA
+    ECnAaTmvNYRWKsC8bIX6p50qwJrWv05eLTDAU6KZ5bqvMMD2ymGcZK8xwIFhlsmybzTAJSYDm86t
+    M8ANAxIkIU4ywNgQmF7NTDLAWe+idXXHMsDAepqbiHoywIcRiPgDCzPAOMaII5MuNMDZlfm7NV01
+    wOmNBxnQJTfAXoIyEV8mN8CE2gzDiU83wHV99o7gzTfAiPluykdWOMBEZjbhwbo5wJHE/Q37xjnA
+    IYs8Yle1OsCOmgpMAgg8wMKmjIcQHz7AuNKEUFLVP8CRrqHtexpBwHf21yO7wELAYrucjleMQsAd
+    I5cHgq5BwEu3/PIPmEHA2z8Fdus+QcA83+xiXLpAwK4crazlb0DAQltS3tzAQMCQ7BnbTuBAwBk9
+    VKZaXEPA1KMlZig6RMAN4G+s8rVFwEwYD+dIgUbAt/LtuDx6RsD6GEGd0ZtGwAT3LJ1J5EbAOgW3
+    vXaWR8BlgunNi3RIwGsUzHd0jEnA2foSvxyrSsDAm8mSlBlMwAKnDFZ7RVDAt+wxDZrOUMBTmHMA
+    74ZRwPJ/5CmtllLA3HPs4m6PU8Bd7faT0LtUwA==
+energy_weight: 1.0
+force_weight: 1.0
+include_line_graph: true
+loss: l1_loss
+loss_params: null
+lr: 0.001
+magmom_target: absolute
+magmom_weight: 0.0
+stress_weight: 0.1
+sync_dist: false
+use_edges: null

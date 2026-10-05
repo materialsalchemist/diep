@@ -1,0 +1,39 @@
+{
+  "model": "DIEP",
+  "backend": "pyg",
+  "fold": 1,
+  "artifacts": "artifacts_full/fold1",
+  "tag": "fold1",
+  "seed": 43,
+  "use_triplets": true,
+  "integral_mode": "grid",
+  "triplet_frame": "canonical",
+  "n_params": 403181,
+  "max_epochs": 300,
+  "scheduler_t_max": 300,
+  "batch_size": 32,
+  "loss": "l1_loss",
+  "weights": {
+    "energy": 1.0,
+    "force": 1.0,
+    "stress": 0.1
+  },
+  "n_train": 349107,
+  "n_val": 19395,
+  "n_test": 19395,
+  "best_val_loss": 0.2316623330116272,
+  "best_checkpoint": "checkpoint/best-epoch=0295.ckpt",
+  "epochs_run": 300,
+  "early_stopped": false,
+  "test": {
+    "test_Total_Loss": 0.23207812011241913,
+    "test_Energy_MAE": 0.026168815791606903,
+    "test_Magmom_MAE": 0.0,
+    "test_Energy_RMSE": 0.04636627435684204,
+    "test_Magmom_RMSE": 0.0,
+    "test_Force_MAE": 0.1437644213438034,
+    "test_Force_RMSE": 0.2908116579055786,
+    "test_Stress_MAE": 0.6462423801422119,
+    "test_Stress_RMSE": 1.208066463470459
+  }
+}

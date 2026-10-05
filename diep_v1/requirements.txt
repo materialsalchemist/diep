@@ -1,0 +1,19 @@
+# pip route; see environment.yml for the conda one and the GPU note.
+#
+# For a CUDA build of torch, install it first from https://pytorch.org, e.g.
+#   pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+# then `pip install -r requirements.txt` (pip keeps the torch you have).
+torch==2.5.1
+torch-geometric==2.7.0
+lightning==2.6.1
+torchmetrics==1.9.0
+pymatgen==2026.5.4
+ase==3.28.0
+numpy==2.4.4
+scipy==1.17.1
+monty==2026.5.18
+requests==2.33.1
+tqdm==4.67.3
+matplotlib==3.10.9
+pandas==3.0.2
+pytest==9.0.3

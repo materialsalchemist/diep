@@ -1,0 +1,35 @@
+# The environment the released model was trained, exported and tested in.
+#
+#   conda env create -f environment.yml
+#   conda activate diep-matpes
+#   pytest -q                               # ~30 s on CPU
+#
+# GPU: these pins install torch 2.5.1 from PyPI, whose default wheel is built for CUDA 12.1,
+# which is what training used. For a different CUDA, install torch first from
+# https://pytorch.org, then create the environment with the torch line removed; nothing
+# else here depends on CUDA. No torch-scatter / torch-sparse extensions are needed.
+#
+# Do NOT use an RTX PRO 6000 / other sm_120 (Blackwell) card with torch 2.5.1: that build
+# has no kernels for it. Newer torch should work but is untested with this release.
+name: diep-matpes
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - torch==2.5.1
+      - torch-geometric==2.7.0
+      - lightning==2.6.1
+      - torchmetrics==1.9.0
+      - pymatgen==2026.5.4
+      - ase==3.28.0
+      - numpy==2.4.4
+      - scipy==1.17.1
+      - monty==2026.5.18
+      - requests==2.33.1
+      - tqdm==4.67.3
+      - matplotlib==3.10.9     # tools/training_curves.py only
+      - pandas==3.0.2          # tools/training_curves.py only
+      - pytest==9.0.3          # tests only
+      # - matpes               # only to let diep_pyg.matpes download MatPES itself

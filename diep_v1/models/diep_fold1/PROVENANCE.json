@@ -1,0 +1,68 @@
+{
+  "name": "diep_fold1",
+  "description": "DIEP (PyG backend) interatomic potential trained on MatPES r2SCAN, fold 1 (seed 43), 90/5/5 split",
+  "source_checkpoint": "best-epoch=0295.ckpt",
+  "source_checkpoint_md5": "9065cedc97c62cb617c140256ff92993",
+  "exported": "2026-10-05",
+  "exported_by": "diep_pyg.export",
+  "epoch": 295,
+  "global_step": 807488,
+  "fold": 1,
+  "functional": "R2SCAN",
+  "architecture": {
+    "model": "DIEP",
+    "n_element_types": 89,
+    "cutoff": 5.0,
+    "threebody_cutoff": 4.0,
+    "nblocks": 3,
+    "units": 64,
+    "dim_node_embedding": 64,
+    "dim_edge_embedding": 64,
+    "grid_half_length": 5.0,
+    "base_spacing": 1.0,
+    "gaussian_sigma": 1.0,
+    "softening_epsilon": 0.5,
+    "use_effective_charge": true,
+    "use_triplets": true,
+    "integral_mode": "grid",
+    "triplet_frame": "canonical"
+  },
+  "n_parameters": 403181,
+  "n_tensors_verified": 113,
+  "data_std_force_rms": 3.183799116564027,
+  "element_refs": "isolated-atom r2SCAN energies (MatPES-R2SCAN-atoms), eV",
+  "units": {
+    "energy": "eV",
+    "forces": "eV/A",
+    "stress": "GPa from Potential, eV/A^3 from diep_pyg.pretrained.make_calculator"
+  },
+  "training": {
+    "seed": 43,
+    "max_epochs": 300,
+    "scheduler_t_max": 300,
+    "batch_size": 32,
+    "loss": "l1_loss",
+    "weights": {
+      "energy": 1.0,
+      "force": 1.0,
+      "stress": 0.1
+    },
+    "n_train": 349107,
+    "n_val": 19395,
+    "n_test": 19395,
+    "best_val_loss": 0.2316623330116272,
+    "epochs_run": 300,
+    "early_stopped": false
+  },
+  "test_metrics": {
+    "test_Total_Loss": 0.23207812011241913,
+    "test_Energy_MAE": 0.026168815791606903,
+    "test_Magmom_MAE": 0.0,
+    "test_Energy_RMSE": 0.04636627435684204,
+    "test_Magmom_RMSE": 0.0,
+    "test_Force_MAE": 0.1437644213438034,
+    "test_Force_RMSE": 0.2908116579055786,
+    "test_Stress_MAE": 0.6462423801422119,
+    "test_Stress_RMSE": 1.208066463470459
+  }
+}

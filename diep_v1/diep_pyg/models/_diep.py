@@ -1,0 +1,400 @@
+"""The DIEP model on PyTorch Geometric.
+
+A translation of :mod:`diep.models._diep`. Submodule and parameter names are identical, so a
+compatible DGL checkpoint still loads. This model additionally smooths its two-body features
+at the pair cutoff; predictions therefore differ from the unsmoothed DGL backend.
+
+The three-body line graph is built by :func:`diep_pyg.graph.compute.create_line_graph`,
+which works in parent-bond index space throughout -- ``triple_index`` holds ids into
+``data.edge_index`` and ``n_triple_ij`` has one entry per bond. Every tensor the forward pass
+indexes with those ids (``edge_index``, ``bond_vec``, the polynomial three-body cutoff, the
+three-body scatter width) is built over the same bonds.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Literal
+
+import torch
+from pymatgen.core import Element
+from torch import nn
+from torch_geometric.utils import scatter
+
+from diep_pyg import config
+from diep_pyg.config import DEFAULT_ELEMENTS
+from diep_pyg.layers._activations import ActivationFunction
+from diep_pyg.layers._core import MLP, GatedMLP
+from diep_pyg.models._core import MatGLModel
+from diep_pyg.graph.compute import (
+    compute_pair_vector_and_distance,
+    create_line_graph,
+    ensure_line_graph_compatibility,
+)
+from diep_pyg.layers import (
+    DIEPIntegrator,
+    EmbeddingBlock,
+    M3GNetBlock,
+    ReduceReadOut,
+    Set2SetReadOut,
+    ThreeBodyInteractions,
+    WeightedAtomReadOut,
+    WeightedReadOut,
+)
+from diep_pyg.utils.cutoff import polynomial_cutoff
+
+if TYPE_CHECKING:
+    from diep_pyg.graph.converters import GraphConverter
+
+
+class DIEP(MatGLModel):
+    """The main DIEP model, PyG backend."""
+
+    __version__ = 1
+
+    def __init__(
+        self,
+        element_types: tuple[str, ...] = DEFAULT_ELEMENTS,
+        dim_node_embedding: int = 64,
+        dim_edge_embedding: int = 64,
+        dim_state_embedding: int = 0,
+        ntypes_state: int | None = None,
+        dim_state_feats: int | None = None,
+        nblocks: int = 3,
+        is_intensive: bool = True,
+        readout_type: Literal["set2set", "weighted_atom", "reduce_atom"] = "weighted_atom",
+        task_type: Literal["classification", "regression"] = "regression",
+        cutoff: float = 5.0,
+        threebody_cutoff: float = 4.0,
+        units: int = 64,
+        ntargets: int = 1,
+        niters_set2set: int = 3,
+        nlayers_set2set: int = 3,
+        field: Literal["node_feat", "edge_feat"] = "node_feat",
+        include_state: bool = False,
+        activation_type: Literal["swish", "tanh", "sigmoid", "softplus2", "softexp"] = "swish",
+        dropout: float | None = None,
+        grid_half_length: float = 5.0,
+        base_spacing: float = 1.0,
+        gaussian_sigma: float = 1.0,
+        integral_mode: Literal["sum", "grid"] = "grid",
+        channel_centers: float | Sequence[float] | None = None,
+        channel_width: float | None = None,
+        softening_epsilon: float = 0.5,
+        use_effective_charge: bool = True,
+        use_edges: bool | None = None,
+        use_triplets: bool = True,
+        triplet_frame: Literal["canonical", "bond"] = "canonical",
+        **kwargs,
+    ):
+        """
+        Args:
+            element_types: elements appearing in the dataset.
+            dim_node_embedding: number of embedded atomic features.
+            dim_edge_embedding: number of edge features.
+            dim_state_embedding: number of hidden neurons in the state embedding.
+            ntypes_state: number of state labels.
+            dim_state_feats: number of state features after the linear layer.
+            nblocks: number of convolution blocks.
+            is_intensive: whether the prediction is intensive.
+            readout_type: `set2set`, `weighted_atom` (default) or `reduce_atom`.
+            task_type: `classification` or `regression` (default).
+            cutoff: cutoff radius of the graph.
+            threebody_cutoff: cutoff radius for the three-body interaction.
+            units: number of neurons in each MLP layer.
+            ntargets: number of target properties.
+            niters_set2set: number of set2set iterations.
+            nlayers_set2set: number of set2set layers.
+            field: "node_feat" or "edge_feat" for Set2Set and reduced readout.
+            include_state: whether to include state features.
+            activation_type: 'swish', 'tanh', 'sigmoid', 'softplus2' or 'softexp'.
+            dropout: dropout probability applied in graph layers during training.
+            grid_half_length: half-length of the 2D integration grid for DIEP.
+            base_spacing: base grid spacing for DIEP integration.
+            gaussian_sigma: width parameter for the Gaussian electron density.
+            integral_mode: "sum" or "grid".
+            channel_centers: bond-length centers (Angstrom) of a bank of Gaussian windows
+                gating the DIEP bond/triplet scalar (only valid with ``integral_mode="sum"``),
+                one channel per center, turning the feature from a single scalar into a
+                length-D vector. ``None`` (default) disables gating.
+            channel_width: width (Angstrom) of each Gaussian window; required whenever
+                ``channel_centers`` is given, including a single center.
+            softening_epsilon: softening parameter preventing 1/r singularities.
+            use_effective_charge: use sqrt(Z) instead of Z.
+            use_edges: if set, overrides triplet/line-graph usage.
+            use_triplets: if False, skip triplet features and three-body interactions.
+            triplet_frame: ``"canonical"`` (default; every checkpoint before 2026-09-30) or
+                ``"bond"``, which draws each triplet in the frame of the bond receiving its
+                message and so removes the energy steps of the canonical ordering. See
+                :class:`~diep_pyg.layers.DIEPIntegrator`; train and evaluate with the same value.
+            **kwargs: for future flexibility. Not used at the moment.
+        """
+        super().__init__()
+        self.save_args(locals(), kwargs)
+
+        try:
+            activation: nn.Module = ActivationFunction[activation_type].value()
+        except KeyError:
+            raise ValueError(
+                f"Invalid activation type, please try using one of {[af.name for af in ActivationFunction]}"
+            ) from None
+
+        self.element_types = element_types or DEFAULT_ELEMENTS
+        self.register_buffer(
+            "atomic_number_table",
+            torch.tensor([Element(el).Z for el in self.element_types], dtype=config.float_th),
+            persistent=False,
+        )
+
+        self.diep_integrator = DIEPIntegrator(
+            grid_half_length=grid_half_length,
+            base_spacing=base_spacing,
+            sigma=gaussian_sigma,
+            mode=integral_mode,
+            channel_centers=channel_centers,
+            channel_width=channel_width,
+            softening_epsilon=softening_epsilon,
+            use_effective_charge=use_effective_charge,
+            triplet_frame=triplet_frame,
+        )
+        degree = self.diep_integrator.edge_dim
+        degree_rbf = degree
+
+        self.embedding = EmbeddingBlock(
+            degree_rbf=degree_rbf,
+            dim_node_embedding=dim_node_embedding,
+            dim_edge_embedding=dim_edge_embedding,
+            ntypes_node=len(element_types),
+            ntypes_state=ntypes_state,
+            dim_state_feats=dim_state_feats,
+            include_state=include_state,
+            dim_state_embedding=dim_state_embedding,
+            activation=activation,
+        )
+
+        self.three_body_interactions = nn.ModuleList(
+            [
+                ThreeBodyInteractions(
+                    update_network_atom=MLP(
+                        dims=[dim_node_embedding, degree], activation=nn.Sigmoid(), activate_last=True
+                    ),
+                    update_network_bond=GatedMLP(in_feats=degree, dims=[dim_edge_embedding], use_bias=False),
+                )
+                for _ in range(nblocks)
+            ]
+        )
+
+        # Width the embedding block actually emits for the state, which is what the conv
+        # blocks and the readout have to be sized against.
+        #
+        # Upstream (diep/models/_diep.py) unconditionally does `dim_state_feats =
+        # dim_state_embedding` here, which is right only for the `nn.Embedding` branch. On the
+        # `dim_state_feats` / LazyLinear branch it overwrites the caller's width with
+        # `dim_state_embedding` (0 by default), so the embedding emits `dim_state_feats`
+        # columns while every consumer is built for `dim_state_embedding` and the first
+        # forward pass dies in a matmul. Mirroring EmbeddingBlock's own branch order fixes
+        # that without changing the Embedding path, where the two are equal anyway.
+        if not include_state:
+            dim_state_feats = dim_state_embedding
+        elif ntypes_state and dim_state_embedding is not None:
+            dim_state_feats = dim_state_embedding  # nn.Embedding(ntypes_state, dim_state_embedding)
+        elif dim_state_feats is None:
+            # EmbeddingBlock returns state_attr untouched on this branch, so its width is
+            # whatever the caller feeds in and nothing here can size the consumers against it.
+            raise ValueError(
+                "include_state=True requires either ntypes_state with dim_state_embedding (a "
+                "learned state embedding) or dim_state_feats (a linear projection of "
+                "continuous state features); with neither, the state passes through the "
+                "embedding block unchanged and its width is unknown at construction time."
+            )
+        # else: LazyLinear(dim_state_feats) -- keep the caller's width unchanged.
+
+        self.graph_layers = nn.ModuleList(
+            [
+                M3GNetBlock(
+                    degree=degree_rbf,
+                    activation=activation,
+                    conv_hiddens=[units, units],
+                    dim_node_feats=dim_node_embedding,
+                    dim_edge_feats=dim_edge_embedding,
+                    dim_state_feats=dim_state_feats,
+                    include_state=include_state,
+                    dropout=dropout,
+                )
+                for _ in range(nblocks)
+            ]
+        )
+
+        if is_intensive:
+            input_feats = dim_node_embedding if field == "node_feat" else dim_edge_embedding
+            if readout_type == "set2set":
+                self.readout = Set2SetReadOut(
+                    in_feats=input_feats, n_iters=niters_set2set, n_layers=nlayers_set2set, field=field
+                )
+                readout_feats = 2 * input_feats + dim_state_feats if include_state else 2 * input_feats
+            elif readout_type == "weighted_atom":
+                self.readout = WeightedAtomReadOut(in_feats=input_feats, dims=[units, units], activation=activation)
+                readout_feats = units + dim_state_feats if include_state else units
+            else:
+                self.readout = ReduceReadOut("mean", field=field)
+                readout_feats = input_feats + dim_state_feats if include_state else input_feats
+
+            self.final_layer = MLP([readout_feats, units, units, ntargets], activation, activate_last=False)
+            if task_type == "classification":
+                self.sigmoid = nn.Sigmoid()
+        else:
+            if task_type == "classification":
+                raise ValueError("Classification task cannot be extensive.")
+            self.final_layer = WeightedReadOut(
+                in_feats=dim_node_embedding, dims=[units, units], num_targets=ntargets
+            )
+
+        self.n_blocks = nblocks
+        self.units = units
+        self.cutoff = cutoff
+        self.threebody_cutoff = threebody_cutoff
+        self.include_state = include_state
+        self.task_type = task_type
+        self.is_intensive = is_intensive
+        if use_edges is not None:
+            use_triplets = use_edges
+        # One stored flag, two names. `use_triplets` and `use_edges` were separate
+        # attributes kept in sync only at construction, so any later write to one left the
+        # other stale -- and `Potential` wrote them separately. `forward` reads `use_edges`
+        # while run manifests read `use_triplets`, so a stale pair means the recorded
+        # metadata and the arm actually run disagree, with nothing raising. `use_edges` is
+        # now a property aliasing `use_triplets`, so they cannot drift apart.
+        self.use_triplets = use_triplets
+
+    @property
+    def use_edges(self) -> bool:
+        """Alias of ``use_triplets``; kept for API parity with the DGL model."""
+        return self.use_triplets
+
+    @use_edges.setter
+    def use_edges(self, value: bool) -> None:
+        self.use_triplets = bool(value)
+
+    def forward(self, g, state_attr: torch.Tensor | None = None, l_g=None, return_all_layer_output: bool = False):
+        """Message passing over the graph, returning the target property.
+
+        Args:
+            g: PyG graph (or batch) for the structures.
+            state_attr: state attributes.
+            l_g: ignored; the line graph lives on ``g`` as ``triple_index`` / ``n_triple_ij``.
+                Accepted so the call signature matches the DGL model.
+            return_all_layer_output: return the output of every DIEP layer rather than just
+                the final one.
+
+        Returns:
+            The predicted property, or a dict of per-layer outputs.
+        """
+        del l_g  # the PyG line graph is carried on `g` itself
+        node_types = g.node_type.long()
+        bond_vec, bond_dist = compute_pair_vector_and_distance(g)
+        g.bond_vec = bond_vec
+        g.bond_dist = bond_dist
+
+        use_edges = self.use_edges
+        if use_edges:
+            # builds the line graph if absent, validates it against this graph's bond count
+            # if it came from a cache; either way `g.triple_index` ends up in parent-bond space
+            ensure_line_graph_compatibility(g, self.threebody_cutoff)
+
+        atomic_table = self.atomic_number_table
+        if atomic_table.device != node_types.device:
+            atomic_table = atomic_table.to(node_types.device)
+        atomic_numbers = atomic_table[node_types].to(config.float_th)
+        # Calculate the raw bond and triplet features using the DIEP integrator.
+        bond_features, triplet_features = self.diep_integrator(g, atomic_numbers, compute_triplets=use_edges)
+        # Attenuate bond features at the pair cutoff before embedding and message passing.
+        pair_cutoff = polynomial_cutoff(g.bond_dist, self.cutoff)
+
+        # Apply one factor per bond to every feature channel; retain the existing shape.
+        g.rbf = bond_features * pair_cutoff.unsqueeze(-1)
+        if use_edges:
+            three_body_basis = triplet_features
+            three_body_cutoff = polynomial_cutoff(g.bond_dist, self.threebody_cutoff)
+
+        node_feat, edge_feat, state_feat = self.embedding(node_types, g.rbf, state_attr)
+        fea_dict = {"diep_embedding": g.rbf}
+        for i in range(self.n_blocks):
+            if use_edges:
+                edge_feat = self.three_body_interactions[i](
+                    g, three_body_basis, three_body_cutoff, node_feat, edge_feat
+                )
+            edge_feat, node_feat, state_feat = self.graph_layers[i](g, edge_feat, node_feat, state_feat)
+            fea_dict[f"gc_{i + 1}"] = {
+                "node_feat": node_feat,
+                "edge_feat": edge_feat,
+                "state_feat": state_feat,
+            }
+        g.node_feat = node_feat
+        g.edge_feat = edge_feat
+
+        if self.is_intensive:
+            field_vec = self.readout(g)
+            readout_vec = torch.hstack([field_vec, state_feat]) if self.include_state else field_vec
+            fea_dict["readout"] = readout_vec
+            output = self.final_layer(readout_vec)
+            if self.task_type == "classification":
+                output = self.sigmoid(output)
+        else:
+            atomic_properties = self.final_layer(g)
+            g.atomic_properties = atomic_properties
+            fea_dict["readout"] = atomic_properties
+            batch = getattr(g, "batch", None)
+            if batch is None:
+                batch = torch.zeros(atomic_properties.size(0), dtype=torch.long, device=atomic_properties.device)
+            size = int(batch.max()) + 1 if batch.numel() else 1
+            output = scatter(atomic_properties, batch, dim=0, dim_size=size, reduce="sum")
+
+        fea_dict["final"] = output
+        if return_all_layer_output:
+            return fea_dict
+        return torch.squeeze(output)
+
+    def predict_structure(
+        self,
+        structure,
+        state_feats: torch.Tensor | None = None,
+        graph_converter: GraphConverter | None = None,
+        output_layers: list | None = None,
+        return_features: bool = False,
+    ):
+        """Featurize or predict the property of a structure.
+
+        Args:
+            structure: input crystal or molecule.
+            state_feats: graph attributes.
+            graph_converter: object implementing ``get_graph``. Defaults to Structure2Graph
+                at this model's cutoff.
+            output_layers: names of layers to return when ``return_features`` is True.
+            return_features: whether to return layer outputs instead of the final value.
+
+        Returns:
+            The predicted property, or a dict of layer outputs.
+        """
+        from diep_pyg.graph.converters import Structure2Graph  # noqa: PLC0415  (circular import)
+
+        allowed = ["diep_embedding", *[f"gc_{i + 1}" for i in range(self.n_blocks)], "readout", "final"]
+        if output_layers is None:
+            output_layers = allowed
+        elif not isinstance(output_layers, list) or set(output_layers).difference(allowed):
+            raise ValueError(f"Invalid output_layers, it must be a sublist of {allowed}.")
+
+        if graph_converter is None:
+            graph_converter = Structure2Graph(element_types=self.element_types, cutoff=self.cutoff)
+        g, lat, state_feats_default = graph_converter.get_graph(structure)
+        g.pbc_offshift = torch.matmul(g.pbc_offset, lat[0])
+        g.pos = g.frac_coords @ lat[0]
+        if state_feats is None:
+            state_feats = torch.tensor(state_feats_default)
+        if self.use_edges:
+            bond_vec, bond_dist = compute_pair_vector_and_distance(g)
+            g.bond_vec, g.bond_dist = bond_vec, bond_dist
+            create_line_graph(g, self.threebody_cutoff)
+        if return_features:
+            return {k: v for k, v in self(g=g, state_attr=state_feats, return_all_layer_output=True).items()
+                    if k in output_layers}
+        return self(g=g, state_attr=state_feats)
