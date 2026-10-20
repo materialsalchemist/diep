@@ -1,4 +1,4 @@
-"""diep 1.0: DIEP on PyTorch Geometric -- a standalone package.
+"""diep 2.0: DIEP on PyTorch Geometric -- a standalone package.
 
 This package has no parent and no DGL dependency: everything it needs is vendored here,
 including the framework-neutral pieces (MLP blocks, activations, cutoffs, grid geometry,
@@ -31,7 +31,7 @@ checks it here.
 
 from __future__ import annotations
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 from diep.graph.compute import (
     DIEPData,

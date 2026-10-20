@@ -142,7 +142,7 @@ class IOMixIn:
         for k, v in d.items():
             if isinstance(v, dict) and "@class" in v and "@module" in v:
                 modname = v["@module"]
-                # diep 1.0 was developed as ``diep_pyg``; models exported under that name
+                # diep 2.0 was developed as ``diep_pyg``; models exported under that name
                 # (diep_fold1 among them) record it here.
                 if modname == "diep_pyg" or modname.startswith("diep_pyg."):
                     modname = "diep" + modname[len("diep_pyg"):]

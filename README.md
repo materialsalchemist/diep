@@ -1,11 +1,13 @@
-<img src="./assets/logo.svg" width="200px">
+<img src="https://raw.githubusercontent.com/materialsalchemist/diep/main/assets/logo.svg" width="200px">
 
-# diep 1.0: a DIEP interatomic potential trained on MatPES r2SCAN
+# diep 2.0: a DIEP interatomic potential trained on MatPES r2SCAN
 
-**diep 1.0 is the next version of `diep`.** It replaces the 0.x library (0.1.1 on PyPI,
+**diep 2.0 is the next version of `diep`.** It replaces the 0.x library (the 0.1.1 PyPI release,
 0.3 in this repository's history) with a standalone PyTorch Geometric implementation that
-needs neither DGL nor matgl, fixes the defects listed in [`diep/README.md`](diep/README.md),
-and ships a pretrained model. The 0.x code is kept unchanged in [`legacy/`](legacy/); see
+needs neither DGL nor matgl, fixes the defects listed in
+[`diep/README.md`](https://github.com/materialsalchemist/diep/blob/main/diep/README.md),
+and ships a pretrained model. The 0.x code is kept unchanged in
+[`legacy/`](https://github.com/materialsalchemist/diep/tree/main/legacy/); see
 [Upgrading from 0.x](#upgrading-from-0x).
 
 This release contains a pretrained machine-learned interatomic potential, `diep_fold1`, and
@@ -54,6 +56,12 @@ environment.yml requirements.txt pyproject.toml
 
 ## Install
 
+Install version 2.0 from PyPI:
+
+```bash
+pip install "diep==2.0.0"
+```
+
 From a clone of this repository:
 
 ```bash
@@ -72,17 +80,16 @@ pip install "git+https://github.com/materialsalchemist/diep.git"
 The pip package includes the exported model (`model.json`, `model.pt`, `state.pt`,
 `PROVENANCE.json`), so `make_calculator()` works from a pip install. The Lightning
 checkpoint, fold splits and training logs are only in the repository.
-`pip install diep` from PyPI still gives 0.1.1 until 1.0 is uploaded there.
 
 ## Upgrading from 0.x
 
-- `import diep` now gives the 1.0 API. The 0.x modules, its DGL backend and its `diep` CLI
-  are not part of 1.0. To keep using them, install 0.x (`pip install "diep<1"`) or use
+- `import diep` now gives the 2.0 API. The 0.x modules, its DGL backend and its `diep` CLI
+  are not part of 2.0. To keep using them, install 0.x (`pip install "diep<1"`) or use
   `legacy/`.
 - The model applies two-body cutoff smoothing, so predictions differ from the 0.x DGL
   backend even with identical weights. Parameter names still match, so compatible checkpoints load directly,
   and loading is strict: a missing parameter raises an error.
-- Models exported while 1.0 was developed under the name `diep_pyg` load unchanged.
+- Models exported during development under the name `diep_pyg` load unchanged.
 
 Pinned: Python 3.11, torch 2.5.1, torch-geometric 2.7.0, lightning 2.6.1, pymatgen 2026.5,
 ase 3.28. See `environment.yml` for GPU notes.
@@ -283,4 +290,4 @@ nearly absent: Ne appears in 1 training structure, Ar in 3, Kr in 23, He in 76 a
 ## License
 
 BSD 3-Clause. `LICENSE` is the upstream `diep` repository's license file, carried over
-unchanged. diep 1.0 derives from the 0.x code, which in turn derives from matgl.
+unchanged. diep 2.0 derives from the 0.x code, which in turn derives from matgl.

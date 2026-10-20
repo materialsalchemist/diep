@@ -48,7 +48,7 @@ data/
 .claude
 logs/
 
-# from the diep 1.0 release tree
+# from the diep 2.0 release tree
 __pycache__/
 .pytest_cache/
 /build/

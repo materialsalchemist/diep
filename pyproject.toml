@@ -1,14 +1,15 @@
 [build-system]
-requires = ["setuptools>=64"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "diep"
-version = "1.0.0"
+version = "2.0.0"
 description = "DIEP interatomic potential (PyTorch Geometric) trained on MatPES r2SCAN, with the code that trained it"
 keywords = ["material science", "graph neural networks", "interatomic potential", "machine learning"]
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 # Exact versions used for training and testing are in requirements.txt / environment.yml.
 dependencies = [
