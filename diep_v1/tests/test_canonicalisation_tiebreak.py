@@ -21,7 +21,9 @@ every centre atom, so both enumerations of every triplet are always present in t
 batch. Measured on a mixed O/Si/N cell before the fix: the two orderings of one physical
 O-Si-N triple differed by 0.059 against a feature scale of 2.66.
 
-Each test below was confirmed to fail with the tie-break reverted.
+Four of the seven tests below were confirmed to fail with the tie-break reverted. The other
+three are guards that must pass either way: untied ordering unchanged, same-Z consistency and
+rotation invariance.
 """
 
 from __future__ import annotations

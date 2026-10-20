@@ -109,7 +109,8 @@ python -m diep_pyg.export \
     --out models/my_diep
 ```
 
-**Hyperparameters** (all in `slurm/train.sh`):
+**Hyperparameters** (`slurm/train.sh` sets the epochs, patience, batch size, learning rate
+and loss; everything else is a `diep_pyg/train.py` default):
 
 | setting | value |
 |---|---|
@@ -213,8 +214,9 @@ For new training, `TRIPLET_FRAME=bond sbatch slurm/train.sh` selects a frame anc
 each bond, which has no such steps. In a matched fold-0 comparison it also reached a lower
 test energy MAE (31.8 vs 35.4 meV/atom). This model is canonical and must be evaluated
 canonically. The frame is recorded in `model.json`, and bond-frame state dicts carry a
-marker, so a strict load across frames fails instead of silently computing the wrong
-features.
+marker, so `load_state_dict(strict=True)` across frames fails instead of silently computing
+the wrong features. The package's own `load` fails only one way: bond weights in a
+canonical model raise a warning, not an error.
 
 **Float32 force spikes on nearly straight triplets.** The canonical frame normalises
 `perp/|perp|`, which amplifies float32 rounding when three atoms are nearly collinear and

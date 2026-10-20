@@ -47,8 +47,8 @@ test passes either way. Every fixture in `test_batching_regressions.py` is that 
 Si is 2 atoms; the lone atom is 1 atom / 0 edges): those tests pin the readout and state
 defects they were written for, and say nothing about node-vs-bond offsets.
 
-Confirmed by mutation: with `__inc__` returning `self.num_nodes`, the **entire pre-existing
-71-test suite still passes**, while 9 of the 12 new tests fail. The fixtures here are
+Confirmed by mutation: with `__inc__` returning `self.num_nodes`, **every test that existed
+before this file (71 at the time) still passes**, while 9 of the 12 new tests fail. The fixtures here are
 deliberately asymmetric -- `SPARSE` has 5 nodes and 2 edges -- and
 `test_fixtures_are_asymmetric` guards that property, so a later edit that "tidies" them into
 a symmetric cell fails loudly instead of silently disarming the file.
@@ -153,7 +153,7 @@ fail with its own fix reverted.
   given, so these ensembles run out of the box and stay consistent with the barostat stiffness
   used by `npt_nose_hoover`.
 
-* **`pfactor` was dimensionally wrong — the barostat was ~17× too stiff.** ASE defines
+* **`pfactor` was dimensionally wrong — the barostat was ~4× too slow.** ASE defines
   `pfactor = ptime**2 * B`, with ptime in ASE time units and B a bulk modulus in eV/Å³. The
   code passed `75.0**2 * units.fs`: the time factor unsquared *and* the bulk modulus missing
   entirely. That gave **552.53** where "ptime = 75 fs, B = 0.6 eV/Å³" is **32.56** — a factor
@@ -356,8 +356,11 @@ same training-step time on a 32-structure MatPES batch.
 
 The two frames give different descriptors, so a model must be trained and evaluated in the
 same one. `"canonical"` stays the default, so every existing checkpoint loads unchanged.
-`"bond"` adds a `diep_integrator.bond_anchored_triplets` marker to the state dict, so a strict
-load across frames fails instead of silently computing the wrong features. `DIEP.save` and
+`"bond"` adds a `diep_integrator.bond_anchored_triplets` marker to the state dict, so
+`load_state_dict(strict=True)` across frames fails instead of silently computing the wrong
+features. The package's own `load` is one-directional: canonical weights in a bond model
+raise (missing marker), but bond weights in a canonical model only warn (unexpected key,
+per the checkpoint fix above). `DIEP.save` and
 `DIEP.load` carry the setting in the model args. In `slurm/train.sh`,
 `TRIPLET_FRAME=bond` writes to `runs_diep/diep_fold{k}_bond`.
 
@@ -409,4 +412,4 @@ It is unavoidable in the canonical frame: any rule assigning discrete labels to 
 has to switch somewhere. `triplet_frame="bond"` assigns none and has no switch; see
 *Bond-anchored triplet frame* above. The alternative — letting enumeration order decide, as the code did
 before 2026-09-29 — is strictly worse, because it makes the descriptor depend on something
-that is not physics at all. See *Triplet ordering* below.
+that is not physics at all. See *Triplet ordering* above.
