@@ -193,7 +193,8 @@ the parts that do not need the full dataset.
   `evaluate` reproduces Lightning's test metrics (MAEs and logged RMSEs) to within 2e-7
   relative.
 - **Derivatives are consistent.** On rattled Si, MgO and NaCl, forces match central finite
-  differences of the energy to 4e-3 eV/Å (float32, h = 0.01 Å). On Si, stresses match
+  differences of the energy to 7.5e-3 eV/Å or better (float32, h = 0.01 Å; worst component
+  over five 0.05 Å rattles each: Si 7.5e-3, NaCl 2.7e-3, MgO 2.3e-3). On Si, stresses match
   strain finite differences to 7e-5 eV/Å³.
 
 ## Known limitations
