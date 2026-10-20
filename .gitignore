@@ -47,3 +47,12 @@ test_data.json
 data/
 .claude
 logs/
+
+# from the diep 1.0 release tree
+__pycache__/
+.pytest_cache/
+/build/
+# working data written by the scripts (not part of the release)
+/data/
+/logs/
+/results/

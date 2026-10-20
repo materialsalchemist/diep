@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diep"
+version = "1.0.0"
+description = "DIEP interatomic potential (PyTorch Geometric) trained on MatPES r2SCAN, with the code that trained it"
+keywords = ["material science", "graph neural networks", "interatomic potential", "machine learning"]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+# Exact versions used for training and testing are in requirements.txt / environment.yml.
+dependencies = [
+    "torch>=2.1",
+    "torch-geometric>=2.5",
+    "lightning>=2.2",
+    "torchmetrics>=1.0",
+    "pymatgen>=2024.1.1",
+    "ase>=3.23",
+    "numpy",
+    "scipy",
+    "monty",
+    "requests",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+data = ["matpes"]                    # only for downloading MatPES in diep.matpes build
+plot = ["matplotlib", "pandas"]      # tools/training_curves.py
+test = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/materialsalchemist/diep"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["diep*"]
+
+# Only the exported model ships in the package; the checkpoint, fold splits and training
+# logs under pretrained_models/diep_fold1 stay in the repository.
+[tool.setuptools.package-data]
+diep = [
+    "pretrained_models/diep_fold1/model.json",
+    "pretrained_models/diep_fold1/model.pt",
+    "pretrained_models/diep_fold1/state.pt",
+    "pretrained_models/diep_fold1/PROVENANCE.json",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = ["ignore::FutureWarning", "ignore::DeprecationWarning"]

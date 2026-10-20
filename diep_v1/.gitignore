@@ -1,9 +1,0 @@
-__pycache__/
-*.pyc
-.pytest_cache/
-*.egg-info/
-/build/
-# working data written by the scripts (not part of the release)
-/data/
-/logs/
-/results/
